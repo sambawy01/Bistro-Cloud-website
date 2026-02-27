@@ -34,7 +34,7 @@ export function HomePage() {
       <section className="relative h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1768726134294-92234fe2f76c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwZm9vZCUyMHNwcmVhZCUyMHRhYmxlJTIwb3ZlcmhlYWR8ZW58MXx8fHwxNzcxMTMzNjU1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+            src="https://i.ibb.co/hRJKBWTn/image001.jpg"
             alt="Delicious food spread"
             className="w-full h-full object-cover"
           />
