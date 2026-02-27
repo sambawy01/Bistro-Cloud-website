@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'
 import { useCart } from '../context/CartContext';
 import { Button } from './ui/button';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
@@ -175,11 +175,11 @@ Delivery Time: ${deliveryTime}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nP
                   </div>
                 </div>
                 <div className="mb-6">
-                  <h3 className="font-bold text-gray-800 mb-3 text-sm">Order Notes (optional)</h3>
+                  <h3 className="font-bold text-gray-800 mb-3 text-sm">Notes / Address <span className="font-normal text-gray-500">(for first-time orders only)</span></h3>
                   <textarea
                     value={orderNotes}
                     onChange={(e) => setOrderNotes(e.target.value)}
-                    placeholder="Allergies, special requests, delivery instructions..."
+                    placeholder="Delivery address (first-time orders), allergies, special requests..."
                     rows={2}
                     className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] resize-none"
                   />
