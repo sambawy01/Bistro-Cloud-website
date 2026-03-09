@@ -1,0 +1,20 @@
+# Bistro Cloud
+
+> Bistro Cloud is a fresh food delivery service based in El Gouna, Egypt. We prepare 100% natural international meals daily and deliver them across El Gouna. Located in the West Golf, New Sabina area. Open daily 10:00-20:00.
+
+## About
+- [About Bistro Cloud](https://bistro-cloud.com/about): Local food delivery service in El Gouna, Red Sea Governorate, Egypt. Fresh, natural, international cuisine made daily.
+
+## Menu
+- [Full Menu](https://bistro-cloud.com/menu): International dishes prepared fresh daily and available for delivery across El Gouna. Price range EGP 400-700 per person.
+
+## Ordering
+- [Order Online](https://bistro-cloud.com): Place an order for delivery in El Gouna via our website or WhatsApp.
+
+## Contact
+- Phone: +201221288804
+- Address: West Golf, New Sabina, El Gouna, Red Sea Governorate, Egypt
+- Hours: Daily 10:00-20:00
+
+## Service Area
+El Gouna, Red Sea Governorate, Egypt
