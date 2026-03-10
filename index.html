@@ -97,6 +97,16 @@
       <p>Address: West Golf, New Sabina, El Gouna, Red Sea Governorate, Egypt</p>
       <p>Hours: Daily 10:00-20:00</p>
     </noscript>
+    <script>
+      // SPA redirect handler - picks up path saved by 404.html
+      (function(){
+        var redirect = sessionStorage.getItem('spa-redirect');
+        if (redirect) {
+          sessionStorage.removeItem('spa-redirect');
+          window.history.replaceState(null, '', redirect);
+        }
+      })();
+    </script>
     <div id="root"></div>
   </body>
 </html>
