@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, Phone, MapPin, Instagram, Facebook, Mail } from 'lucide-react';
+import { Menu, X, ShoppingBag, Phone, MapPin, Instagram, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import logoHeader from '@/assets/8ed5368e99d26da0c833286cd37634dbfa9feba8.png';
 import logoFooter from '@/assets/8ce61c2b20b01bfb625276cbc7a2d368e6d7d388.png';
@@ -137,11 +137,8 @@ function LayoutContent() {
                 El Gouna's premium cloud kitchen. 100% natural ingredients, open kitchen policy, and Mediterranean warmth delivered to your door.
               </p>
               <div className="flex gap-4">
-                <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#D94E28] transition-colors border border-white/10 hover:border-transparent">
+                <a href="https://www.instagram.com/bistrocloudelgouna/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#D94E28] transition-colors border border-white/10 hover:border-transparent">
                   <Instagram className="w-5 h-5" />
-                </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#D94E28] transition-colors border border-white/10 hover:border-transparent">
-                  <Facebook className="w-5 h-5" />
                 </a>
               </div>
             </div>
@@ -168,7 +165,7 @@ function LayoutContent() {
                     rel="noopener noreferrer"
                     className="hover:text-white transition-colors text-left"
                   >
-                    <span>Downtown, El Gouna<br/>Red Sea, Egypt</span>
+                    <span>West Golf, New Sabina<br/>El Gouna, Red Sea, Egypt</span>
                   </a>
                 </li>
                 <li className="flex items-center gap-3 group">
@@ -187,7 +184,7 @@ function LayoutContent() {
               <ul className="space-y-4 text-gray-300 text-sm">
                 <li className="flex justify-between border-b border-white/10 pb-2">
                   <span>Mon - Sun</span>
-                  <span>7:00 AM - 12:00 AM</span>
+                  <span>10:00 AM - 8:00 PM</span>
                 </li>
               </ul>
             </div>

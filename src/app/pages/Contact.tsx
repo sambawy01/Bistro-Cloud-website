@@ -19,7 +19,7 @@ export function ContactPage() {
               <Phone className="w-8 h-8" />
             </div>
             <h3 className="font-bold text-xl mb-2 text-[#2C3E50]">Call Us</h3>
-            <p className="text-gray-500 mb-6">Mon-Sun from 7am to Midnight</p>
+            <p className="text-gray-500 mb-6">Mon-Sun from 10am to 8pm</p>
             <a href="tel:+201221288804" className="text-[#D94E28] font-bold text-lg hover:underline decoration-2 underline-offset-4">+20 122 128 8804</a>
           </div>
 
@@ -52,7 +52,7 @@ export function ContactPage() {
              
              <div className="text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-sm border border-white">
                <MapPin className="w-12 h-12 mx-auto mb-4 text-[#D94E28]" />
-               <h3 className="font-bold text-[#2C3E50] text-lg mb-1">Downtown, El Gouna</h3>
+               <h3 className="font-bold text-[#2C3E50] text-lg mb-1">West Golf, New Sabina, El Gouna</h3>
                <p className="text-gray-500 text-sm">Red Sea Governorate, Egypt</p>
                <a 
                  href="https://maps.app.goo.gl/zYd24dZBBffosLSH7" 

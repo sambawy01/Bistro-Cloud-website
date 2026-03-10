@@ -93,88 +93,97 @@ export function HomePage() {
             </p>
           </div>
 
-          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mb-12">
-            <AnimatePresence>
-              {menuLoading ? [1,2,3].map((i) => (<motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse flex flex-col"><div className="h-64 bg-gray-200 shrink-0" /><div className="p-6"><div className="h-5 bg-gray-200 rounded w-3/4 mb-3" /><div className="h-4 bg-gray-200 rounded w-full mb-2" /><div className="h-12 bg-gray-200 rounded-xl mt-6" /></div></motion.div>)) : (isMenuExpanded ? menuItems : menuItems.slice(0, 3)).map((item) => (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                  key={item.id}
-                  className={`bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col ${
-                    item.status === 'sold_out' ? 'opacity-75 grayscale-[0.5]' : ''
-                  }`}
+          {menuItems.length === 0 && !menuLoading ? (
+            <div className="max-w-2xl mx-auto text-center py-8">
+              <div className="bg-white rounded-3xl p-12 shadow-sm border border-gray-100">
+                <div className="w-20 h-20 bg-[#FFF5F2] rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Clock className="w-10 h-10 text-[#D94E28]" />
+                </div>
+                <h3 className="font-montserrat font-bold text-2xl md:text-3xl text-[#2C3E50] mb-4">
+                  Tomorrow's Menu Drops at 12 PM
+                </h3>
+                <p className="text-gray-500 text-lg mb-8 leading-relaxed">
+                  Our chefs are preparing something special. Check back tomorrow at noon for the fresh daily menu.
+                </p>
+                <a
+                  href="https://chat.whatsapp.com/BYGHdETThbn9kYUf8W7fpu?mode=gi_t"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-6 rounded-full shadow-lg shadow-green-500/20 transition-all hover:scale-105"
                 >
-                  <div className="relative h-64 overflow-hidden shrink-0">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                      {item.dietary?.map((tag) => (
-                        <span key={tag} className="bg-white/95 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase text-[#2C3E50] shadow-sm">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    {item.status === 'limited' && (
-                      <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold shadow-sm animate-pulse">
-                        Low Stock
+                  Join WhatsApp for Daily Updates
+                </a>
+              </div>
+            </div>
+          ) : (
+            <>
+              <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mb-12">
+                <AnimatePresence>
+                  {menuLoading ? [1,2,3].map((i) => (<motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse flex flex-col"><div className="h-64 bg-gray-200 shrink-0" /><div className="p-6"><div className="h-5 bg-gray-200 rounded w-3/4 mb-3" /><div className="h-4 bg-gray-200 rounded w-full mb-2" /><div className="h-12 bg-gray-200 rounded-xl mt-6" /></div></motion.div>)) : (isMenuExpanded ? menuItems : menuItems.slice(0, 3)).map((item) => (
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3 }}
+                      key={item.id}
+                      className={`bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col ${
+                        item.status === 'sold_out' ? 'opacity-75 grayscale-[0.5]' : ''
+                      }`}
+                    >
+                      <div className="relative h-64 overflow-hidden shrink-0">
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                          {item.dietary?.map((tag) => (
+                            <span key={tag} className="bg-white/95 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase text-[#2C3E50] shadow-sm">{tag}</span>
+                          ))}
+                        </div>
+                        {item.status === 'limited' && (
+                          <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold shadow-sm animate-pulse">Low Stock</div>
+                        )}
+                        {item.status === 'sold_out' && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px]">
+                            <span className="bg-white text-gray-800 px-4 py-2 rounded-full font-bold shadow-lg transform -rotate-12 border-2 border-gray-800">SOLD OUT</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {item.status === 'sold_out' && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px]">
-                        <span className="bg-white text-gray-800 px-4 py-2 rounded-full font-bold shadow-lg transform -rotate-12 border-2 border-gray-800">SOLD OUT</span>
+                      <div className="p-6 flex flex-col flex-1">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-montserrat font-bold text-lg text-[#2C3E50] leading-tight">{item.name}</h3>
+                          <span className="font-bold text-[#D94E28] whitespace-nowrap ml-2">EGP {item.price}</span>
+                        </div>
+                        <p className="text-gray-500 text-sm mb-6 line-clamp-2 leading-relaxed flex-1">{item.description}</p>
+                        <div className="mt-auto pt-4 border-t border-gray-100">
+                          {item.status === 'sold_out' ? (
+                             <Button disabled className="w-full bg-gray-100 text-gray-400 border border-gray-200">Unavailable</Button>
+                          ) : (
+                            <Button onClick={() => addItem(item)} className="w-full bg-[#2C3E50] hover:bg-[#D94E28] text-white transition-all duration-300 shadow-lg hover:shadow-[#D94E28]/25 h-12 rounded-xl text-base font-semibold group-hover:translate-y-[-2px]">
+                              <Plus className="w-4 h-4 mr-2" />Add to Cart
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-6 flex flex-col flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-montserrat font-bold text-lg text-[#2C3E50] leading-tight">{item.name}</h3>
-                      <span className="font-bold text-[#D94E28] whitespace-nowrap ml-2">EGP {item.price}</span>
-                    </div>
-                    
-                    <p className="text-gray-500 text-sm mb-6 line-clamp-2 leading-relaxed flex-1">{item.description}</p>
-                    
-                    <div className="mt-auto pt-4 border-t border-gray-100">
-                      {item.status === 'sold_out' ? (
-                         <Button disabled className="w-full bg-gray-100 text-gray-400 border border-gray-200">
-                           Unavailable
-                         </Button>
-                      ) : (
-                        <Button 
-                          onClick={() => addItem(item)}
-                          className="w-full bg-[#2C3E50] hover:bg-[#D94E28] text-white transition-all duration-300 shadow-lg hover:shadow-[#D94E28]/25 h-12 rounded-xl text-base font-semibold group-hover:translate-y-[-2px]"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add to Cart
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
 
-          <div className="text-center">
-            <Button
-              onClick={() => setIsMenuExpanded(!isMenuExpanded)}
-              variant="outline"
-              size="lg"
-              className="rounded-full px-10 py-6 border-2 border-[#D94E28] text-[#D94E28] hover:bg-[#D94E28] hover:text-white transition-all text-lg font-bold group"
-            >
-              {isMenuExpanded ? (
-                <>Show Less <ChevronDown className="ml-2 w-5 h-5 rotate-180 transition-transform" /></>
-              ) : (
-                <>View Full Menu <ChevronDown className="ml-2 w-5 h-5 transition-transform group-hover:translate-y-1" /></>
-              )}
-            </Button>
-          </div>
+              <div className="text-center">
+                <Button
+                  onClick={() => setIsMenuExpanded(!isMenuExpanded)}
+                  variant="outline"
+                  size="lg"
+                  className="rounded-full px-10 py-6 border-2 border-[#D94E28] text-[#D94E28] hover:bg-[#D94E28] hover:text-white transition-all text-lg font-bold group"
+                >
+                  {isMenuExpanded ? (
+                    <>Show Less <ChevronDown className="ml-2 w-5 h-5 rotate-180 transition-transform" /></>
+                  ) : (
+                    <>View Full Menu <ChevronDown className="ml-2 w-5 h-5 transition-transform group-hover:translate-y-1" /></>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
