@@ -28,33 +28,51 @@ export interface ContactFormData {
   message: string;
 }
 
+/**
+ * Posts data to the CRM via a hidden form + iframe.
+ * This bypasses CORS entirely — HTML form submissions don't have CORS restrictions.
+ * Google Apps Script's 302 redirect breaks fetch() (POST becomes GET, losing body),
+ * but form submissions follow redirects correctly and preserve the POST body.
+ */
 async function postToCRM(formType: string, data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
   try {
     return new Promise((resolve) => {
+      // Create a hidden iframe to receive the form's response
+      const iframeName = 'crm-submit-' + Date.now();
       const iframe = document.createElement('iframe');
-      iframe.name = 'crm-submit-target-' + Date.now();
+      iframe.name = iframeName;
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
 
+      // Create a hidden form targeting the iframe
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = CRM_ENDPOINT;
-      form.target = iframe.name;
+      form.target = iframeName;
+      form.style.display = 'none';
 
+      // Pack all data as a single JSON payload field
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = 'payload';
-      input.value = JSON.stringify({ formType, data, timestamp: new Date().toISOString() });
+      input.value = JSON.stringify({
+        formType,
+        data,
+        timestamp: new Date().toISOString(),
+      });
       form.appendChild(input);
 
       document.body.appendChild(form);
       form.submit();
 
+      // Clean up after a delay (Apps Script needs time to process)
       setTimeout(() => {
         try {
           document.body.removeChild(form);
           document.body.removeChild(iframe);
-        } catch (e) {}
+        } catch (e) {
+          // Ignore cleanup errors
+        }
         resolve({ success: true });
       }, 3000);
     });
