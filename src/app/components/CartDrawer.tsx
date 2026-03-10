@@ -1,8 +1,9 @@
 import React from 'react'
 import { useCart } from '../context/CartContext';
 import { Button } from './ui/button';
-import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { submitOrder } from '../../services/crmService';
 
 // I'll implement a custom drawer/sidebar since I haven't installed shadcn sheet fully
 export function CartDrawer() {
@@ -11,15 +12,36 @@ export function CartDrawer() {
   const [deliveryTime, setDeliveryTime] = React.useState('As soon as possible');
   const [orderNotes, setOrderNotes] = React.useState('')
   const [address, setAddress] = React.useState('');
+  const [customerName, setCustomerName] = React.useState('');
+  const [customerPhone, setCustomerPhone] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     // Generate WhatsApp Message
-    const orderSummary = items.map(item => 
+    const orderSummary = items.map(item =>
       `${item.quantity}x ${item.name} (${item.price * item.quantity} EGP)`
     ).join('\n');
-    
+
+    // Save to CRM first (non-blocking — don't prevent WhatsApp if CRM fails)
+    if (customerName.trim() && customerPhone.trim()) {
+      setIsSubmitting(true);
+      try {
+        await submitOrder({
+          name: customerName,
+          phone: customerPhone,
+          address: address || orderNotes,
+          deliveryArea: 'El Gouna',
+          orderTotal: totalPrice,
+          orderSummary: orderSummary,
+        });
+      } catch (err) {
+        console.error('CRM save failed (non-blocking):', err);
+      }
+      setIsSubmitting(false);
+    }
+
     const text = `Hi Bistro Cloud! I'd like to place an order:\n\n${orderSummary}\n\nTotal: ${totalPrice} EGP\nPayment Method: ${paymentMethod}
-Delivery Time: ${deliveryTime}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nPlease confirm delivery time.`;
+Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${customerPhone ? '\nPhone: ' + customerPhone : ''}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nPlease confirm delivery time.`;
     const url = `https://wa.me/201221288804?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
     clearCart();
@@ -38,7 +60,7 @@ Delivery Time: ${deliveryTime}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nP
             onClick={toggleCart}
             className="fixed inset-0 bg-black z-50 backdrop-blur-sm"
           />
-          
+
           {/* Drawer */}
           <motion.div
             initial={{ x: '100%' }}
@@ -69,9 +91,9 @@ Delivery Time: ${deliveryTime}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nP
                 </div>
               ) : (
                 items.map(item => (
-                  <motion.div 
+                  <motion.div
                     layout
-                    key={item.id} 
+                    key={item.id}
                     className="flex gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"
                   >
                     <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-lg bg-gray-100" />
@@ -80,10 +102,10 @@ Delivery Time: ${deliveryTime}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nP
                         <h3 className="font-bold text-gray-800 text-sm">{item.name}</h3>
                         <p className="text-[#D94E28] font-bold text-sm">EGP {item.price}</p>
                       </div>
-                      
+
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
-                          <button 
+                          <button
                             onClick={() => updateQuantity(item.id, -1)}
                             disabled={item.quantity <= 1}
                             className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm disabled:opacity-50 text-gray-600 hover:text-[#D94E28]"
@@ -91,14 +113,14 @@ Delivery Time: ${deliveryTime}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nP
                             <Minus className="w-3 h-3" />
                           </button>
                           <span className="font-semibold text-sm w-4 text-center">{item.quantity}</span>
-                          <button 
+                          <button
                             onClick={() => updateQuantity(item.id, 1)}
                             className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-[#D94E28]"
                           >
                             <Plus className="w-3 h-3" />
                           </button>
                         </div>
-                        <button 
+                        <button
                           onClick={() => removeItem(item.id)}
                           className="text-gray-400 hover:text-red-500 transition-colors p-2"
                         >
@@ -113,15 +135,36 @@ Delivery Time: ${deliveryTime}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nP
 
             {items.length > 0 && (
               <div className="p-6 border-t bg-[#F9F5F0] overflow-y-auto max-h-[60vh]">
+                {/* Customer Info */}
+                <div className="mb-6">
+                  <h3 className="font-bold text-gray-800 mb-3 text-sm">Your Details</h3>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Your Name"
+                      className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28]"
+                    />
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Phone Number (e.g. +20 122 128 8804)"
+                      className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28]"
+                    />
+                  </div>
+                </div>
+
                 <div className="mb-6">
                   <h3 className="font-bold text-gray-800 mb-3 text-sm">Payment Method</h3>
                   <div className="grid grid-cols-1 gap-2">
                     {['Cash on Delivery', 'Instapay', 'Credit/Debit Card'].map((method) => (
-                      <label 
+                      <label
                         key={method}
                         className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all ${
-                          paymentMethod === method 
-                            ? 'border-[#D94E28] bg-white shadow-sm ring-1 ring-[#D94E28]' 
+                          paymentMethod === method
+                            ? 'border-[#D94E28] bg-white shadow-sm ring-1 ring-[#D94E28]'
                             : 'border-gray-200 bg-transparent hover:bg-white/50'
                         }`}
                       >
@@ -188,8 +231,17 @@ Delivery Time: ${deliveryTime}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nP
                   <span className="text-gray-600">Total</span>
                   <span className="font-montserrat font-bold text-2xl text-[#D94E28]">EGP {totalPrice}</span>
                 </div>
-                <Button onClick={handleCheckout} className="w-full h-14 text-lg font-bold rounded-xl shadow-lg shadow-[#D94E28]/20">
-                  Checkout via WhatsApp
+                <Button
+                  onClick={handleCheckout}
+                  disabled={isSubmitting}
+                  className="w-full h-14 text-lg font-bold rounded-xl shadow-lg shadow-[#D94E28]/20"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Saving...
+                    </span>
+                  ) : 'Checkout via WhatsApp'}
                 </Button>
                 <p className="text-center text-xs text-gray-500 mt-4">
                   Free delivery across all of El Gouna

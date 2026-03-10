@@ -1,12 +1,43 @@
+import React from 'react';
 import { Button } from '../components/ui/button';
-import { Check, Anchor, Briefcase, MapPin, UtensilsCrossed } from 'lucide-react';
+import { Check, Anchor, Briefcase, MapPin, UtensilsCrossed, Loader2 } from 'lucide-react';
+import { submitCateringInquiry } from '../../services/crmService';
 import weddingImage from '@/assets/699e163a5a4cd8a2c79cb2efaf64cdbdf659f75a.png';
 import boatImage from '@/assets/c278aaff636c8eb3234aefe831140cca51bd2356.png';
 
 export function CateringPage() {
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitStatus, setSubmitStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    alert("Thank you for your inquiry! We will contact you shortly.");
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const result = await submitCateringInquiry({
+      eventType: formData.get('eventType') as string,
+      guestCount: formData.get('guestCount') as string,
+      name: formData.get('name') as string,
+      company: formData.get('company') as string,
+      email: formData.get('email') as string,
+      phone: formData.get('phone') as string,
+      eventDate: formData.get('eventDate') as string,
+      location: formData.get('location') as string,
+      menuPreferences: formData.get('menuPreferences') as string,
+    });
+
+    setIsSubmitting(false);
+    if (result.success) {
+      setSubmitStatus('success');
+      form.reset();
+      setTimeout(() => setSubmitStatus('idle'), 5000);
+    } else {
+      setSubmitStatus('error');
+      setTimeout(() => setSubmitStatus('idle'), 5000);
+    }
   };
 
   return (
@@ -23,13 +54,13 @@ export function CateringPage() {
       </section>
 
       <div className="container mx-auto px-4 py-16 space-y-24">
-        
+
         {/* Corporate Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="order-2 lg:order-1">
-             <img 
-              src="https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&q=80" 
-              alt="Corporate Catering" 
+             <img
+              src="https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&q=80"
+              alt="Corporate Catering"
               className="rounded-3xl shadow-xl w-full object-cover h-64 md:h-96"
             />
           </div>
@@ -92,9 +123,9 @@ export function CateringPage() {
             </ul>
           </div>
           <div>
-             <img 
+             <img
               src={boatImage}
-              alt="Boat Catering" 
+              alt="Boat Catering"
               className="rounded-3xl shadow-xl w-full object-cover h-64 md:h-96"
             />
           </div>
@@ -103,9 +134,9 @@ export function CateringPage() {
         {/* Home & Wedding Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="order-2 lg:order-1">
-             <img 
+             <img
               src={weddingImage}
-              alt="Wedding & Home Catering" 
+              alt="Wedding & Home Catering"
               className="rounded-3xl shadow-xl w-full object-cover h-64 md:h-96"
             />
           </div>
@@ -144,12 +175,23 @@ export function CateringPage() {
             <h2 className="font-montserrat font-bold text-3xl text-[#2C3E50] mb-4">Request a Quote</h2>
             <p className="text-gray-500">Tell us about your event and we'll craft the perfect menu.</p>
           </div>
-          
+
+          {submitStatus === 'success' && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-center font-medium">
+              Thank you for your inquiry! We'll get back to you within 24 hours.
+            </div>
+          )}
+          {submitStatus === 'error' && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-center font-medium">
+              Something went wrong. Please try again or contact us via WhatsApp.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Event Type</label>
-                <select className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all appearance-none cursor-pointer">
+                <select name="eventType" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all appearance-none cursor-pointer">
                   <option>Corporate Event / Office Lunch</option>
                   <option>Boat / Yacht Trip</option>
                   <option>Private Party / Home Gathering</option>
@@ -159,52 +201,64 @@ export function CateringPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Estimated Guests</label>
-                <input type="number" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="20" required />
+                <input name="guestCount" type="number" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="20" required />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
-                <input type="text" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="Jane Smith" required />
+                <input name="name" type="text" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="Jane Smith" required />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Company / Boat Name</label>
-                <input type="text" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="Optional" />
+                <input name="company" type="text" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="Optional" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
-                <input type="email" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="jane@example.com" required />
+                <input name="email" type="email" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="jane@example.com" required />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number</label>
-                <input type="tel" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="+20 123 456 7890" required />
+                <input name="phone" type="tel" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="+20 123 456 7890" required />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Event Date</label>
-                <input type="date" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" required />
+                <input name="eventDate" type="date" className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" required />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Location / Marina</label>
                  <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="text" className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="e.g. Abu Tig Marina" />
+                  <input name="location" type="text" className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="e.g. Abu Tig Marina" />
                 </div>
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Menu Preferences & Details</label>
-              <textarea rows={4} className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="Tell us about your preferences (e.g. Seafood focus, Vegetarian options, Finger foods only)..."></textarea>
+              <textarea name="menuPreferences" rows={4} className="w-full px-4 py-3 rounded-xl bg-[#F9F5F0] border-transparent focus:bg-white border focus:border-[#D94E28] focus:ring-0 transition-all" placeholder="Tell us about your preferences (e.g. Seafood focus, Vegetarian options, Finger foods only)..."></textarea>
             </div>
 
-            <Button type="submit" size="lg" className="w-full text-lg h-14 rounded-xl shadow-lg shadow-[#D94E28]/20 hover:bg-[#c0392b] transition-transform active:scale-95">Send Request</Button>
+            <Button
+              type="submit"
+              size="lg"
+              disabled={isSubmitting}
+              className="w-full text-lg h-14 rounded-xl shadow-lg shadow-[#D94E28]/20 hover:bg-[#c0392b] transition-transform active:scale-95 disabled:opacity-70"
+            >
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Sending...
+                </span>
+              ) : 'Send Request'}
+            </Button>
           </form>
         </div>
       </div>
