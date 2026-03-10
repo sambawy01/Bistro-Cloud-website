@@ -1,4 +1,4 @@
-const CRM_ENDPOINT = 'https://script.google.com/macros/s/AKfycbysX2U-5j6HCverVl3uRTtdjne7mYEPvlNtWdsUEnT-o4-8aT8LJTwiOdII3I4wIjBY/exec';
+const CRM_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzwhYQ44aHHJrLCf9up8zTyYFuvNQrGAOvqgXWHLTn86GlzDPuUV8TcP19b_IET7kvr/exec';
 
 export interface CateringInquiry {
   name: string;
