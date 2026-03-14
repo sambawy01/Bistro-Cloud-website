@@ -29,10 +29,10 @@ export interface ContactFormData {
 }
 
 /**
- * Sends data to the CRM via GET request with payload as a query parameter.
- * Google Apps Script's "Execute as Me / Anyone" deployment does a 302 redirect
- * that strips POST bodies. GET requests follow the redirect correctly and the
- * doGet handler in Apps Script delegates to doPost when a payload param is present.
+ * Sends data to the CRM via a hidden iframe GET request.
+ * Google Apps Script redirects (302) strip POST bodies, so we use GET.
+ * An iframe navigating to the URL reliably follows all redirects and
+ * lets the server process the request cross-origin without CORS issues.
  */
 async function postToCRM(formType: string, data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
   try {
@@ -44,20 +44,17 @@ async function postToCRM(formType: string, data: Record<string, unknown>): Promi
 
     const url = CRM_ENDPOINT + '?payload=' + encodeURIComponent(payload);
 
-    // Use a hidden image request for reliable cross-origin GET.
-    // fetch() with no-cors returns opaque responses we can't read,
-    // but an image request fires onload/onerror reliably after the
-    // server processes the request (even though it's not an image).
     return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ success: true });
-      // Apps Script returns JSON not an image, so onerror fires — but the
-      // request was still processed successfully by the server.
-      img.onerror = () => resolve({ success: true });
-      img.src = url;
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
 
-      // Fallback timeout in case neither event fires
-      setTimeout(() => resolve({ success: true }), 5000);
+      // Clean up after the server has had time to process
+      setTimeout(() => {
+        try { document.body.removeChild(iframe); } catch (_) {}
+        resolve({ success: true });
+      }, 4000);
     });
   } catch (err) {
     console.error('CRM submission error:', err);
