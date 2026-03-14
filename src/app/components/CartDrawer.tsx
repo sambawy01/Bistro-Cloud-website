@@ -24,7 +24,11 @@ export function CartDrawer() {
       `${item.quantity}x ${item.name} (${item.price * item.quantity} EGP)`
     ).join('\n');
 
-    // Fire CRM save in background — don't block WhatsApp checkout
+    // Fire CRM save BEFORE opening WhatsApp. The submitOrder call
+    // creates a hidden <img> tag on document.body which initiates the
+    // GET request synchronously. We still don't await network completion
+    // (fire-and-forget), but we ensure the <img> is in the DOM before
+    // window.open or state changes could interfere.
     if (customerName.trim() && customerPhone.trim()) {
       submitOrder({
         name: customerName,
@@ -38,10 +42,17 @@ export function CartDrawer() {
 
     const text = `Hi Bistro Cloud! I'd like to place an order:\n\n${orderSummary}\n\nTotal: ${totalPrice} EGP\nPayment Method: ${paymentMethod}
 Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${customerPhone ? '\nPhone: ' + customerPhone : ''}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nPlease confirm delivery time.`;
-    const url = `https://wa.me/201221288804?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-    clearCart();
-    toggleCart();
+    const whatsappUrl = `https://wa.me/201221288804?text=${encodeURIComponent(text)}`;
+
+    // Small delay to ensure the CRM <img> request has been initiated
+    // by the browser before we open a new window and mutate state.
+    // The <img> is on document.body (outside React), so clearCart/toggleCart
+    // won't affect it, but the delay ensures the network request starts.
+    setTimeout(() => {
+      window.open(whatsappUrl, '_blank');
+      clearCart();
+      toggleCart();
+    }, 100);
   };
 
   return (
