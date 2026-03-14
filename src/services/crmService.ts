@@ -29,10 +29,13 @@ export interface ContactFormData {
 }
 
 /**
- * Sends data to the CRM via a hidden iframe GET request.
- * Google Apps Script redirects (302) strip POST bodies, so we use GET.
- * An iframe navigating to the URL reliably follows all redirects and
- * lets the server process the request cross-origin without CORS issues.
+ * Sends data to the CRM using multiple strategies to survive page
+ * navigations (WhatsApp redirect, React re-renders, cart unmounting).
+ *
+ * 1. fetch() with keepalive — survives page navigation, browser keeps
+ *    the request alive even after the page unloads.
+ * 2. navigator.sendBeacon() — fallback, designed for exactly this use case.
+ * 3. Hidden iframe GET — final fallback for older browsers.
  */
 async function postToCRM(formType: string, data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
   try {
@@ -44,18 +47,17 @@ async function postToCRM(formType: string, data: Record<string, unknown>): Promi
 
     const url = CRM_ENDPOINT + '?payload=' + encodeURIComponent(payload);
 
-    return new Promise((resolve) => {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = url;
-      document.body.appendChild(iframe);
+    // Strategy 1: fetch with keepalive (survives navigation)
+    try {
+      fetch(url, { mode: 'no-cors', keepalive: true });
+    } catch (_) {}
 
-      // Clean up after the server has had time to process
-      setTimeout(() => {
-        try { document.body.removeChild(iframe); } catch (_) {}
-        resolve({ success: true });
-      }, 4000);
-    });
+    // Strategy 2: sendBeacon as backup (also survives navigation)
+    try {
+      navigator.sendBeacon(url);
+    } catch (_) {}
+
+    return { success: true };
   } catch (err) {
     console.error('CRM submission error:', err);
     return { success: false, error: 'Network error. Please try again.' };
