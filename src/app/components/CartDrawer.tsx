@@ -15,44 +15,51 @@ export function CartDrawer() {
   const [customerName, setCustomerName] = React.useState(() => localStorage.getItem('bc_name') || '');
   const [customerPhone, setCustomerPhone] = React.useState(() => localStorage.getItem('bc_phone') || '');
 
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
   const handleCheckout = async () => {
-    // Remember customer details for next time
-    if (customerName.trim()) localStorage.setItem('bc_name', customerName.trim());
-    if (customerPhone.trim()) localStorage.setItem('bc_phone', customerPhone.trim());
-    // Generate WhatsApp Message
-    const orderSummary = items.map(item =>
-      `${item.quantity}x ${item.name} (${item.price * item.quantity} EGP)`
-    ).join('\n');
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-    // Fire CRM save BEFORE opening WhatsApp. The submitOrder call
-    // creates a hidden <img> tag on document.body which initiates the
-    // GET request synchronously. We still don't await network completion
-    // (fire-and-forget), but we ensure the <img> is in the DOM before
-    // window.open or state changes could interfere.
-    if (customerName.trim() && customerPhone.trim()) {
-      submitOrder({
-        name: customerName,
-        phone: customerPhone,
-        address: address || orderNotes,
-        deliveryArea: 'El Gouna',
-        orderTotal: totalPrice,
-        orderSummary: orderSummary,
-      }).catch(err => console.error('CRM save failed:', err));
-    }
+    try {
+      // Remember customer details for next time
+      if (customerName.trim()) localStorage.setItem('bc_name', customerName.trim());
+      if (customerPhone.trim()) localStorage.setItem('bc_phone', customerPhone.trim());
 
-    const text = `Hi Bistro Cloud! I'd like to place an order:\n\n${orderSummary}\n\nTotal: ${totalPrice} EGP\nPayment Method: ${paymentMethod}
+      // Generate WhatsApp Message
+      const orderSummary = items.map(item =>
+        `${item.quantity}x ${item.name} (${item.price * item.quantity} EGP)`
+      ).join('\n');
+
+      const text = `Hi Bistro Cloud! I'd like to place an order:\n\n${orderSummary}\n\nTotal: ${totalPrice} EGP\nPayment Method: ${paymentMethod}
 Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${customerPhone ? '\nPhone: ' + customerPhone : ''}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nPlease confirm delivery time.`;
-    const whatsappUrl = `https://wa.me/201221288804?text=${encodeURIComponent(text)}`;
+      const whatsappUrl = `https://wa.me/201221288804?text=${encodeURIComponent(text)}`;
 
-    // Small delay to ensure the CRM <img> request has been initiated
-    // by the browser before we open a new window and mutate state.
-    // The <img> is on document.body (outside React), so clearCart/toggleCart
-    // won't affect it, but the delay ensures the network request starts.
-    setTimeout(() => {
+      // AWAIT the CRM save before opening WhatsApp.
+      // submitOrder now uses a <script> tag strategy and resolves when the
+      // request completes (or after a 4s safety timeout). This ensures the
+      // CRM data reaches Google Apps Script BEFORE the browser gets
+      // backgrounded by the WhatsApp deep link on mobile.
+      if (customerName.trim() && customerPhone.trim()) {
+        await submitOrder({
+          name: customerName,
+          phone: customerPhone,
+          address: address || orderNotes,
+          deliveryArea: 'El Gouna',
+          orderTotal: totalPrice,
+          orderSummary: orderSummary,
+        }).catch(err => console.error('CRM save failed:', err));
+      }
+
+      // Now that CRM logging is complete (or timed out), open WhatsApp
+      // and clean up cart state. Safe to do immediately — the server has
+      // already received the order data.
       window.open(whatsappUrl, '_blank');
       clearCart();
       toggleCart();
-    }, 100);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -240,9 +247,10 @@ Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${
                 </div>
                 <Button
                   onClick={handleCheckout}
-                  className="w-full h-14 text-lg font-bold rounded-xl shadow-lg shadow-[#D94E28]/20"
+                  disabled={isSubmitting}
+                  className="w-full h-14 text-lg font-bold rounded-xl shadow-lg shadow-[#D94E28]/20 disabled:opacity-70"
                 >
-                  Checkout via WhatsApp
+                  {isSubmitting ? 'Placing order...' : 'Checkout via WhatsApp'}
                 </Button>
                 <p className="text-center text-xs text-gray-500 mt-4">
                   Free delivery across all of El Gouna

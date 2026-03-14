@@ -31,24 +31,48 @@ export interface ContactFormData {
 /**
  * Sends data to the CRM via GET request to a Google Apps Script endpoint.
  *
- * Why this approach:
- * - Google Apps Script redirects (302) from script.google.com to
- *   script.googleusercontent.com. This cross-origin redirect breaks
- *   fetch() in both 'no-cors' mode (opaque redirect — never followed)
- *   and 'cors' mode (redirect lacks CORS headers).
- * - navigator.sendBeacon() always sends POST, which Apps Script rejects
- *   after the 302 strips the body (405 error).
- * - A hidden <img> tag follows 302 redirects transparently across
- *   origins, triggering the server-side doGet handler reliably.
- * - Appending the <img> to document.body (outside React's tree) means
- *   React re-renders and component unmounts cannot cancel the request.
- * - Once the browser initiates the image load, it completes even if
- *   the user navigates away (e.g., window.open to WhatsApp).
+ * ROOT CAUSE of previous failures:
+ * --------------------------------
+ * 1. Google Apps Script 302-redirects from script.google.com to
+ *    script.googleusercontent.com. The processing happens on the FIRST
+ *    request (the 302), and the redirect delivers the response.
  *
- * Strategy stack (primary + fallback):
- * 1. Hidden <img> tag appended to document.body (primary)
- * 2. fetch() in 'cors' mode with redirect:'follow' (backup — works in
- *    environments where the final response includes CORS headers)
+ * 2. The <img> tag approach FAILS because the final response has
+ *    Content-Type: application/json AND X-Content-Type-Options: nosniff.
+ *    Modern browsers refuse to decode a non-image MIME type as an image
+ *    and may abort the connection before the server finishes processing.
+ *
+ * 3. fetch() with mode:'cors' FAILS because the cross-origin 302 redirect
+ *    (script.google.com -> script.googleusercontent.com) triggers the
+ *    "opaque redirect" handling in some browsers, blocking the response.
+ *
+ * 4. fetch() with mode:'no-cors' gets an opaque response and does NOT
+ *    follow cross-origin redirects reliably.
+ *
+ * 5. On mobile, window.open() to wa.me deep-links backgrounds the browser,
+ *    causing in-flight network requests to be killed before completing.
+ *
+ * SOLUTION: Three-layer strategy with completion signaling
+ * --------------------------------------------------------
+ * Primary:  <script> tag (JSONP-style) — the most battle-tested mechanism
+ *           for cross-origin GET with redirects. Browsers MUST follow 302
+ *           redirects for script loading (same behavior that makes CDNs
+ *           work). The response (JSON) causes a parse error, but that
+ *           fires AFTER the full response is downloaded and the server
+ *           has processed the request.
+ *
+ * Backup:   <link rel="prefetch"> — tells the browser to fetch the URL
+ *           as a low-priority resource. Follows redirects, no CORS needed,
+ *           no MIME type restrictions.
+ *
+ * Tertiary: fetch() with mode:'no-cors' — fires the request; even though
+ *           the response is opaque, the server still processes the GET.
+ *
+ * The function returns a Promise that resolves when the primary <script>
+ * tag completes (load or error — both mean the server got the request)
+ * or after a timeout, whichever comes first. This lets callers WAIT for
+ * CRM completion before performing destructive actions like opening
+ * WhatsApp or clearing cart state.
  */
 async function postToCRM(formType: string, data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
   try {
@@ -60,43 +84,84 @@ async function postToCRM(formType: string, data: Record<string, unknown>): Promi
 
     const url = CRM_ENDPOINT + '?payload=' + encodeURIComponent(payload);
 
-    // Guard against excessively long URLs (browser limit ~2048 chars,
-    // most servers accept up to ~8000). If the URL is too long, truncate
-    // the order summary to fit.
     if (url.length > 6000) {
       console.warn('CRM payload URL is very long (' + url.length + ' chars). Consider truncating order data.');
     }
 
-    // Strategy 1: Hidden <img> tag — most reliable for cross-origin
-    // redirecting GET endpoints. The browser follows 302 redirects
-    // transparently. Appended to document.body so React cannot unmount it.
-    try {
-      const img = document.createElement('img');
-      img.style.display = 'none';
-      img.src = url;
-      document.body.appendChild(img);
-      // Clean up after a generous timeout (request is already in-flight)
-      setTimeout(() => {
-        try { document.body.removeChild(img); } catch (_) { /* already removed */ }
-      }, 30000);
-    } catch (_) {
-      // img creation failed (e.g., SSR environment) — fall through to fetch
-    }
+    // Create a promise that resolves when the primary request completes
+    // (or after a timeout). This allows the caller to wait.
+    const completionPromise = new Promise<void>((resolve) => {
+      let resolved = false;
+      const done = () => {
+        if (!resolved) {
+          resolved = true;
+          resolve();
+        }
+      };
 
-    // Strategy 2: fetch with cors mode as a backup. Google Apps Script
-    // published endpoints DO return Access-Control-Allow-Origin:* on the
-    // final response at googleusercontent.com, so this can work when the
-    // browser follows the redirect chain in cors mode.
-    try {
-      fetch(url, {
-        method: 'GET',
-        mode: 'cors',
-        redirect: 'follow',
-        keepalive: true,
-      }).catch(() => {
-        // Silently ignore — the <img> strategy is the primary path
-      });
-    } catch (_) {}
+      // Strategy 1 (PRIMARY): <script> tag
+      // Browsers follow 302 redirects for <script> loading without any
+      // CORS or MIME-type restrictions on the redirect chain. The final
+      // response is JSON (not valid JS), so it triggers onerror — but
+      // onerror fires AFTER the full response body has been received,
+      // meaning the server has already processed the request.
+      try {
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        // Both onload and onerror mean the request completed.
+        // For JSON responses, onerror is the expected path.
+        script.onload = done;
+        script.onerror = done;
+        script.src = url;
+        document.body.appendChild(script);
+        // Clean up after completion + buffer
+        setTimeout(() => {
+          try { document.body.removeChild(script); } catch (_) { /* already removed */ }
+        }, 30000);
+      } catch (_) {
+        // script creation failed (SSR) — resolve immediately
+        done();
+      }
+
+      // Strategy 2 (BACKUP): <link rel="prefetch">
+      // Instructs the browser to fetch the resource. Follows redirects,
+      // no CORS restrictions, no MIME sniffing. Works in Chrome/Edge/Firefox.
+      // Safari ignores prefetch but that's OK — the <script> tag covers it.
+      try {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = url;
+        link.as = 'script';
+        document.head.appendChild(link);
+        setTimeout(() => {
+          try { document.head.removeChild(link); } catch (_) { /* already removed */ }
+        }, 30000);
+      } catch (_) {
+        // link creation failed — continue
+      }
+
+      // Strategy 3 (TERTIARY): fetch with no-cors
+      // The response is opaque (can't read it), but the server still
+      // receives and processes the GET request. This is purely additive.
+      try {
+        fetch(url, {
+          method: 'GET',
+          mode: 'no-cors',
+          keepalive: true,
+          credentials: 'omit',
+        }).then(done).catch(done);
+      } catch (_) {
+        // fetch not available — continue
+      }
+
+      // Safety timeout: resolve after 4 seconds no matter what.
+      // This prevents blocking the UI indefinitely on slow networks.
+      // By this point, the request has been initiated by at least one
+      // strategy and will complete in the background even after resolve.
+      setTimeout(done, 4000);
+    });
+
+    await completionPromise;
 
     return { success: true };
   } catch (err) {

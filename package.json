@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
