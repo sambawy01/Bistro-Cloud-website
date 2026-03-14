@@ -22,9 +22,16 @@ export function CartDrawer() {
     setIsSubmitting(true);
 
     try {
+      // Require name and phone before checkout
+      if (!customerName.trim() || !customerPhone.trim()) {
+        alert('Please enter your name and phone number to place an order.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Remember customer details for next time
-      if (customerName.trim()) localStorage.setItem('bc_name', customerName.trim());
-      if (customerPhone.trim()) localStorage.setItem('bc_phone', customerPhone.trim());
+      localStorage.setItem('bc_name', customerName.trim());
+      localStorage.setItem('bc_phone', customerPhone.trim());
 
       // Generate WhatsApp Message
       const orderSummary = items.map(item =>
@@ -35,25 +42,17 @@ export function CartDrawer() {
 Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${customerPhone ? '\nPhone: ' + customerPhone : ''}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nPlease confirm delivery time.`;
       const whatsappUrl = `https://wa.me/201221288804?text=${encodeURIComponent(text)}`;
 
-      // AWAIT the CRM save before opening WhatsApp.
-      // submitOrder now uses a <script> tag strategy and resolves when the
-      // request completes (or after a 4s safety timeout). This ensures the
-      // CRM data reaches Google Apps Script BEFORE the browser gets
-      // backgrounded by the WhatsApp deep link on mobile.
-      if (customerName.trim() && customerPhone.trim()) {
-        await submitOrder({
-          name: customerName,
-          phone: customerPhone,
-          address: address || orderNotes,
-          deliveryArea: 'El Gouna',
-          orderTotal: totalPrice,
-          orderSummary: orderSummary,
-        }).catch(err => console.error('CRM save failed:', err));
-      }
+      // Save order to CRM and wait for completion before opening WhatsApp
+      await submitOrder({
+        name: customerName,
+        phone: customerPhone,
+        address: address || orderNotes,
+        deliveryArea: 'El Gouna',
+        orderTotal: totalPrice,
+        orderSummary: orderSummary,
+      }).catch(err => console.error('CRM save failed:', err));
 
-      // Now that CRM logging is complete (or timed out), open WhatsApp
-      // and clean up cart state. Safe to do immediately — the server has
-      // already received the order data.
+      // CRM logging complete — open WhatsApp and clean up
       window.open(whatsappUrl, '_blank');
       clearCart();
       toggleCart();
