@@ -205,45 +205,53 @@ export function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            {productsLoading ? [1,2,3].map((i) => (<motion.div key={i} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="group relative"><div className="h-80 rounded-2xl overflow-hidden mb-6 bg-gray-200 animate-pulse" /><div className="h-5 bg-gray-200 rounded w-3/4 mb-2 animate-pulse" /><div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse" /></motion.div>)) : products.slice(0, 3).map((product) => (
+          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mb-12">
+            <AnimatePresence>
+            {productsLoading ? [1,2,3].map((i) => (<motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse flex flex-col"><div className="h-64 bg-gray-200 shrink-0" /><div className="p-6"><div className="h-5 bg-gray-200 rounded w-3/4 mb-3" /><div className="h-4 bg-gray-200 rounded w-full mb-2" /><div className="h-12 bg-gray-200 rounded-xl mt-6" /></div></motion.div>)) : products.slice(0, 3).map((product) => (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.3 }}
                 key={product.id}
-                className="group relative"
+                className={`bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col ${
+                  product.status === 'sold_out' ? 'opacity-75 grayscale-[0.5]' : ''
+                }`}
               >
-                <div className="relative h-80 rounded-2xl overflow-hidden mb-6 bg-gray-100">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Button 
-                      onClick={() => addItem(product)}
-                      className="bg-white text-[#2C3E50] hover:bg-[#D94E28] hover:text-white rounded-full h-14 px-8 font-bold shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300"
-                    >
-                      <Plus className="w-5 h-5 mr-2" /> Add to Cart
-                    </Button>
+                <div className="relative h-64 overflow-hidden shrink-0">
+                  <img src={product.image} alt={product.name} loading="lazy" decoding="async" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                    {product.dietary?.map((tag) => (
+                      <span key={tag} className="bg-white/95 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase text-[#2C3E50] shadow-sm">{tag}</span>
+                    ))}
                   </div>
-                  <div className="absolute top-4 left-4">
-                    <span className="bg-white/95 backdrop-blur-sm px-3 py-1 rounded-md text-xs font-bold tracking-wider uppercase text-[#2C3E50] shadow-sm">
-                      {product.category}
-                    </span>
-                  </div>
+                  {product.status === 'sold_out' && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px]">
+                      <span className="bg-white text-gray-800 px-4 py-2 rounded-full font-bold shadow-lg transform -rotate-12 border-2 border-gray-800">SOLD OUT</span>
+                    </div>
+                  )}
                 </div>
-                <h3 className="font-montserrat font-bold text-xl text-[#2C3E50] mb-2 group-hover:text-[#D94E28] transition-colors">
-                  {product.name}
-                </h3>
-                <div className="flex justify-between items-center">
-                  <p className="text-gray-500 text-sm line-clamp-1 flex-1 mr-4">{product.description}</p>
-                  <span className="font-bold text-[#D94E28] text-lg">EGP {product.price}</span>
+                <div className="p-6 flex flex-col flex-1">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-montserrat font-bold text-lg text-[#2C3E50] leading-tight">{product.name}</h3>
+                    <span className="font-bold text-[#D94E28] whitespace-nowrap ml-2">EGP {product.price}</span>
+                  </div>
+                  <p className="text-gray-500 text-sm mb-6 line-clamp-2 leading-relaxed flex-1">{product.description}</p>
+                  <div className="mt-auto pt-4 border-t border-gray-100">
+                    {product.status === 'sold_out' ? (
+                       <Button disabled className="w-full bg-gray-100 text-gray-400 border border-gray-200">Unavailable</Button>
+                    ) : (
+                      <Button onClick={() => addItem(product)} className="w-full bg-[#2C3E50] hover:bg-[#D94E28] text-white transition-all duration-300 shadow-lg hover:shadow-[#D94E28]/25 h-12 rounded-xl text-base font-semibold group-hover:translate-y-[-2px]">
+                        <Plus className="w-4 h-4 mr-2" />Add to Cart
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             ))}
-          </div>
+            </AnimatePresence>
+          </motion.div>
           
           <div className="text-center md:hidden">
             <Link to="/products">
