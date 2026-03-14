@@ -151,26 +151,40 @@ Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${
 
             {items.length > 0 && (
               <div className="p-6 border-t bg-[#F9F5F0] overflow-y-auto max-h-[60vh]">
-                {/* Customer Info */}
-                <div className="mb-6">
-                  <h3 className="font-bold text-gray-800 mb-3 text-sm">Your Details</h3>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Your Name"
-                      className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28]"
-                    />
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="Phone Number (e.g. +20 122 128 8804)"
-                      className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28]"
-                    />
+                {/* Customer Info — show welcome if saved, form if not */}
+                {customerName.trim() && customerPhone.trim() ? (
+                  <div className="mb-6 p-4 bg-white rounded-xl border border-gray-100">
+                    <p className="text-gray-800 text-sm">
+                      Welcome back, <span className="font-bold text-[#D94E28]">{customerName.trim()}</span>!
+                    </p>
+                    <button
+                      onClick={() => { setCustomerName(''); setCustomerPhone(''); localStorage.removeItem('bc_name'); localStorage.removeItem('bc_phone'); }}
+                      className="text-xs text-gray-400 hover:text-gray-600 mt-1"
+                    >
+                      Not you? Change details
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="mb-6">
+                    <h3 className="font-bold text-gray-800 mb-3 text-sm">Your Details</h3>
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Your Name"
+                        className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28]"
+                      />
+                      <input
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="Phone Number (e.g. +20 122 128 8804)"
+                        className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28]"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="mb-6">
                   <h3 className="font-bold text-gray-800 mb-3 text-sm">Payment Method</h3>
