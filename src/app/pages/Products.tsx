@@ -111,27 +111,18 @@ export function ProductsPage() {
                   )}
                 </div>
                 
-                {/* Content Area */}
-                <div className="p-6 flex flex-col">
+                <div className="p-6 flex flex-col h-[220px]">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-montserrat font-bold text-lg text-[#2C3E50] leading-tight">{item.name}</h3>
                     <span className="font-bold text-[#D94E28] whitespace-nowrap ml-2">EGP {item.price}</span>
                   </div>
-                  
                   <p className="text-gray-500 text-sm mb-6 line-clamp-2 leading-relaxed flex-1">{item.description}</p>
-                  
                   <div className="mt-auto">
                     {item.status === 'sold_out' ? (
-                       <Button disabled className="w-full bg-gray-100 text-gray-400 border border-gray-200">
-                         Unavailable
-                       </Button>
+                       <Button disabled className="w-full bg-gray-100 text-gray-400 border border-gray-200">Unavailable</Button>
                     ) : (
-                      <Button 
-                        onClick={() => addItem(item)}
-                        className="w-full bg-[#2C3E50] hover:bg-[#D94E28] text-white transition-all duration-300 shadow-lg hover:shadow-[#D94E28]/25 h-12 rounded-xl text-base font-semibold group-hover:translate-y-[-2px]"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add to Cart
+                      <Button onClick={() => addItem(item)} className="w-full bg-[#2C3E50] hover:bg-[#D94E28] text-white transition-all duration-300 shadow-lg hover:shadow-[#D94E28]/25 h-12 rounded-xl text-base font-semibold group-hover:translate-y-[-2px]">
+                        <Plus className="w-4 h-4 mr-2" />Add to Cart
                       </Button>
                     )}
                   </div>
