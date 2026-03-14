@@ -88,6 +88,8 @@ export function ProductsPage() {
                   <img
                     src={item.image}
                     alt={item.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute top-4 left-4 flex flex-wrap gap-2">
@@ -110,7 +112,7 @@ export function ProductsPage() {
                 </div>
                 
                 {/* Content Area */}
-                <div className="p-6 flex flex-col h-[220px]">
+                <div className="p-6 flex flex-col">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-montserrat font-bold text-lg text-[#2C3E50] leading-tight">{item.name}</h3>
                     <span className="font-bold text-[#D94E28] whitespace-nowrap ml-2">EGP {item.price}</span>
