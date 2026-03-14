@@ -214,7 +214,12 @@ Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${
 
                 <div className="mb-6">
                   <h3 className="font-bold text-gray-800 mb-3 text-sm">Delivery Time (2:00 PM - 8:00 PM)</h3>
-                  <div className="grid grid-cols-3 gap-2">
+                  <select
+                    value={deliveryTime}
+                    onChange={(e) => setDeliveryTime(e.target.value)}
+                    className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] appearance-none"
+                    style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23666\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                  >
                     {(() => {
                       const now = new Date();
                       const minTime = new Date(now.getTime() + 30 * 60000);
@@ -233,19 +238,9 @@ Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${
                       }
                       return slots;
                     })().map((time) => (
-                      <button
-                        key={time}
-                        onClick={() => setDeliveryTime(time)}
-                        className={`p-2 rounded-lg border text-xs font-medium transition-all ${
-                          deliveryTime === time
-                            ? "border-[#D94E28] bg-white shadow-sm ring-1 ring-[#D94E28] text-[#D94E28]"
-                            : "border-gray-200 bg-transparent hover:bg-white/50 text-gray-700"
-                        } ${time === "As soon as possible" ? "col-span-3" : ""}`}
-                      >
-                        {time}
-                      </button>
+                      <option key={time} value={time}>{time}</option>
                     ))}
-                  </div>
+                  </select>
                 </div>
                 <div className="mb-6">
                   <h3 className="font-bold text-gray-800 mb-3 text-sm">Notes / Address <span className="font-normal text-gray-500">(for first-time orders only)</span></h3>
