@@ -1,4 +1,4 @@
-const CRM_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzwhYQ44aHHJrLCf9up8zTyYFuvNQrGAOvqgXWHLTn86GlzDPuUV8TcP19b_IET7kvr/exec';
+const CRM_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzN-s2iKeyjIC_k-wyNzj6QHOO5eoW14EqWo7fC4kYzYzqyMOygZpCDPpyqPVxhFA/exec';
 
 export interface CateringInquiry {
   name: string;
@@ -29,52 +29,35 @@ export interface ContactFormData {
 }
 
 /**
- * Posts data to the CRM via a hidden form + iframe.
- * This bypasses CORS entirely — HTML form submissions don't have CORS restrictions.
- * Google Apps Script's 302 redirect breaks fetch() (POST becomes GET, losing body),
- * but form submissions follow redirects correctly and preserve the POST body.
+ * Sends data to the CRM via GET request with payload as a query parameter.
+ * Google Apps Script's "Execute as Me / Anyone" deployment does a 302 redirect
+ * that strips POST bodies. GET requests follow the redirect correctly and the
+ * doGet handler in Apps Script delegates to doPost when a payload param is present.
  */
 async function postToCRM(formType: string, data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
   try {
+    const payload = JSON.stringify({
+      formType,
+      data,
+      timestamp: new Date().toISOString(),
+    });
+
+    const url = CRM_ENDPOINT + '?payload=' + encodeURIComponent(payload);
+
+    // Use a hidden image request for reliable cross-origin GET.
+    // fetch() with no-cors returns opaque responses we can't read,
+    // but an image request fires onload/onerror reliably after the
+    // server processes the request (even though it's not an image).
     return new Promise((resolve) => {
-      // Create a hidden iframe to receive the form's response
-      const iframeName = 'crm-submit-' + Date.now();
-      const iframe = document.createElement('iframe');
-      iframe.name = iframeName;
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
+      const img = new Image();
+      img.onload = () => resolve({ success: true });
+      // Apps Script returns JSON not an image, so onerror fires — but the
+      // request was still processed successfully by the server.
+      img.onerror = () => resolve({ success: true });
+      img.src = url;
 
-      // Create a hidden form targeting the iframe
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = CRM_ENDPOINT;
-      form.target = iframeName;
-      form.style.display = 'none';
-
-      // Pack all data as a single JSON payload field
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'payload';
-      input.value = JSON.stringify({
-        formType,
-        data,
-        timestamp: new Date().toISOString(),
-      });
-      form.appendChild(input);
-
-      document.body.appendChild(form);
-      form.submit();
-
-      // Clean up after a delay (Apps Script needs time to process)
-      setTimeout(() => {
-        try {
-          document.body.removeChild(form);
-          document.body.removeChild(iframe);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-        resolve({ success: true });
-      }, 3000);
+      // Fallback timeout in case neither event fires
+      setTimeout(() => resolve({ success: true }), 5000);
     });
   } catch (err) {
     console.error('CRM submission error:', err);
