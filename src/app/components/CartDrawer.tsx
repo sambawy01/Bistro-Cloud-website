@@ -188,28 +188,16 @@ Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${
 
                 <div className="mb-6">
                   <h3 className="font-bold text-gray-800 mb-3 text-sm">Payment Method</h3>
-                  <div className="grid grid-cols-1 gap-2">
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] appearance-none"
+                    style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23666\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                  >
                     {['Cash on Delivery', 'Instapay', 'Credit/Debit Card'].map((method) => (
-                      <label
-                        key={method}
-                        className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all ${
-                          paymentMethod === method
-                            ? 'border-[#D94E28] bg-white shadow-sm ring-1 ring-[#D94E28]'
-                            : 'border-gray-200 bg-transparent hover:bg-white/50'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="payment"
-                          value={method}
-                          checked={paymentMethod === method}
-                          onChange={(e) => setPaymentMethod(e.target.value)}
-                          className="w-4 h-4 text-[#D94E28] border-gray-300 focus:ring-[#D94E28]"
-                        />
-                        <span className="ml-3 text-sm font-medium text-gray-700">{method}</span>
-                      </label>
+                      <option key={method} value={method}>{method}</option>
                     ))}
-                  </div>
+                  </select>
                 </div>
 
                 <div className="mb-6">
