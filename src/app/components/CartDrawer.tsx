@@ -1,7 +1,7 @@
 import React from 'react'
 import { useCart } from '../context/CartContext';
 import { Button } from './ui/button';
-import { Minus, Plus, Trash2, ShoppingBag, Loader2 } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { submitOrder } from '../../services/crmService';
 
@@ -14,7 +14,7 @@ export function CartDrawer() {
   const [address, setAddress] = React.useState('');
   const [customerName, setCustomerName] = React.useState('');
   const [customerPhone, setCustomerPhone] = React.useState('');
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
 
   const handleCheckout = async () => {
     // Generate WhatsApp Message
@@ -22,22 +22,16 @@ export function CartDrawer() {
       `${item.quantity}x ${item.name} (${item.price * item.quantity} EGP)`
     ).join('\n');
 
-    // Save to CRM first (non-blocking — don't prevent WhatsApp if CRM fails)
+    // Fire CRM save in background — don't block WhatsApp checkout
     if (customerName.trim() && customerPhone.trim()) {
-      setIsSubmitting(true);
-      try {
-        await submitOrder({
-          name: customerName,
-          phone: customerPhone,
-          address: address || orderNotes,
-          deliveryArea: 'El Gouna',
-          orderTotal: totalPrice,
-          orderSummary: orderSummary,
-        });
-      } catch (err) {
-        console.error('CRM save failed (non-blocking):', err);
-      }
-      setIsSubmitting(false);
+      submitOrder({
+        name: customerName,
+        phone: customerPhone,
+        address: address || orderNotes,
+        deliveryArea: 'El Gouna',
+        orderTotal: totalPrice,
+        orderSummary: orderSummary,
+      }).catch(err => console.error('CRM save failed:', err));
     }
 
     const text = `Hi Bistro Cloud! I'd like to place an order:\n\n${orderSummary}\n\nTotal: ${totalPrice} EGP\nPayment Method: ${paymentMethod}
@@ -233,15 +227,9 @@ Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${
                 </div>
                 <Button
                   onClick={handleCheckout}
-                  disabled={isSubmitting}
                   className="w-full h-14 text-lg font-bold rounded-xl shadow-lg shadow-[#D94E28]/20"
                 >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Saving...
-                    </span>
-                  ) : 'Checkout via WhatsApp'}
+                  Checkout via WhatsApp
                 </Button>
                 <p className="text-center text-xs text-gray-500 mt-4">
                   Free delivery across all of El Gouna
