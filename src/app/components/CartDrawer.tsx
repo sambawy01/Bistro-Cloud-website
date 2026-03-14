@@ -12,11 +12,13 @@ export function CartDrawer() {
   const [deliveryTime, setDeliveryTime] = React.useState('As soon as possible');
   const [orderNotes, setOrderNotes] = React.useState('')
   const [address, setAddress] = React.useState('');
-  const [customerName, setCustomerName] = React.useState('');
-  const [customerPhone, setCustomerPhone] = React.useState('');
-
+  const [customerName, setCustomerName] = React.useState(() => localStorage.getItem('bc_name') || '');
+  const [customerPhone, setCustomerPhone] = React.useState(() => localStorage.getItem('bc_phone') || '');
 
   const handleCheckout = async () => {
+    // Remember customer details for next time
+    if (customerName.trim()) localStorage.setItem('bc_name', customerName.trim());
+    if (customerPhone.trim()) localStorage.setItem('bc_phone', customerPhone.trim());
     // Generate WhatsApp Message
     const orderSummary = items.map(item =>
       `${item.quantity}x ${item.name} (${item.price * item.quantity} EGP)`
