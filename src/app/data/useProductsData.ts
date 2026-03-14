@@ -92,9 +92,7 @@ export function useProductsData() {
 
                 async function fetchProducts() {
                         try {
-                                  const response = await fetch(SHEET_CSV_URL + '&_t=' + Date.now(), {
-                                              cache: 'no-store',
-                                  });
+                                  const response = await fetch(SHEET_CSV_URL);
                                   if (!response.ok) throw new Error(`HTTP ${response.status}`);
                                   const csv = await response.text();
                                   const items = csvToItems(csv);

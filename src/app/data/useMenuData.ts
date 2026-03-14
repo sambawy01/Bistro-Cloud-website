@@ -92,9 +92,7 @@ export function useMenuData() {
 
                 async function fetchMenu() {
                         try {
-                                  const response = await fetch(SHEET_CSV_URL + '&_t=' + Date.now(), {
-                                              cache: 'no-store',
-                                  });
+                                  const response = await fetch(SHEET_CSV_URL);
                                   if (!response.ok) throw new Error(`HTTP ${response.status}`);
                                   const csv = await response.text();
                                   const items = csvToMenuItems(csv);
