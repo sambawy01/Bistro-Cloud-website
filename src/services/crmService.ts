@@ -88,8 +88,10 @@ async function postToCRM(formType: string, data: Record<string, unknown>): Promi
       console.warn('CRM payload URL is very long (' + url.length + ' chars). Consider truncating order data.');
     }
 
-    // Create a promise that resolves when the primary request completes
-    // (or after a timeout). This allows the caller to wait.
+    // Send via <script> tag — the only strategy needed.
+    // Browsers follow 302 redirects for script loading without CORS
+    // restrictions. The JSON response triggers onerror (not valid JS),
+    // but onerror fires AFTER the server has processed the request.
     const completionPromise = new Promise<void>((resolve) => {
       let resolved = false;
       const done = () => {
@@ -99,64 +101,20 @@ async function postToCRM(formType: string, data: Record<string, unknown>): Promi
         }
       };
 
-      // Strategy 1 (PRIMARY): <script> tag
-      // Browsers follow 302 redirects for <script> loading without any
-      // CORS or MIME-type restrictions on the redirect chain. The final
-      // response is JSON (not valid JS), so it triggers onerror — but
-      // onerror fires AFTER the full response body has been received,
-      // meaning the server has already processed the request.
       try {
         const script = document.createElement('script');
-        script.type = 'text/javascript';
-        // Both onload and onerror mean the request completed.
-        // For JSON responses, onerror is the expected path.
         script.onload = done;
         script.onerror = done;
         script.src = url;
         document.body.appendChild(script);
-        // Clean up after completion + buffer
         setTimeout(() => {
-          try { document.body.removeChild(script); } catch (_) { /* already removed */ }
+          try { document.body.removeChild(script); } catch (_) {}
         }, 30000);
       } catch (_) {
-        // script creation failed (SSR) — resolve immediately
         done();
       }
 
-      // Strategy 2 (BACKUP): <link rel="prefetch">
-      // Instructs the browser to fetch the resource. Follows redirects,
-      // no CORS restrictions, no MIME sniffing. Works in Chrome/Edge/Firefox.
-      // Safari ignores prefetch but that's OK — the <script> tag covers it.
-      try {
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.href = url;
-        link.as = 'script';
-        document.head.appendChild(link);
-        setTimeout(() => {
-          try { document.head.removeChild(link); } catch (_) { /* already removed */ }
-        }, 30000);
-      } catch (_) {
-        // link creation failed — continue
-      }
-
-      // Strategy 3 (TERTIARY): fetch with no-cors
-      // The response is opaque (can't read it), but the server still
-      // receives and processes the GET request. This is purely additive.
-      try {
-        fetch(url, {
-          method: 'GET',
-          mode: 'no-cors',
-          keepalive: true,
-          credentials: 'omit',
-        }).then(done).catch(done);
-      } catch (_) {
-        // fetch not available — continue
-      }
-
       // Safety timeout: resolve after 4 seconds no matter what.
-      // This prevents blocking the UI indefinitely on slow networks.
-      // By this point, the request has been initiated by at least one
       // strategy and will complete in the background even after resolve.
       setTimeout(done, 4000);
     });
