@@ -42,8 +42,13 @@ export function CartDrawer() {
 Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${customerPhone ? '\nPhone: ' + customerPhone : ''}${orderNotes ? '\nNotes: ' + orderNotes : ''}\n\nPlease confirm delivery time.`;
       const whatsappUrl = `https://wa.me/201221288804?text=${encodeURIComponent(text)}`;
 
-      // Save order to CRM and wait for completion before opening WhatsApp
-      await submitOrder({
+      // Open WhatsApp FIRST — must be synchronous in the click handler
+      // or browsers block it as a popup. The <script> tag CRM strategy
+      // completes even after WhatsApp opens (proven by diagnostic test).
+      window.open(whatsappUrl, '_blank');
+
+      // Fire CRM save in background — script tag survives navigation
+      submitOrder({
         name: customerName,
         phone: customerPhone,
         address: address || orderNotes,
@@ -52,8 +57,6 @@ Delivery Time: ${deliveryTime}${customerName ? '\nName: ' + customerName : ''}${
         orderSummary: orderSummary,
       }).catch(err => console.error('CRM save failed:', err));
 
-      // CRM logging complete — open WhatsApp and clean up
-      window.open(whatsappUrl, '_blank');
       clearCart();
       toggleCart();
     } finally {
