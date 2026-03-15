@@ -10,7 +10,7 @@ import {
   getInventory, getRequisitions,
   restockItem,
   submitManualRequisition,
-  approveRequisition, rejectRequisition,
+  approveRequisition, rejectRequisition, outOfStockRequisition,
 } from '@/services/inventoryService';
 import { Role } from '@/services/adminService';
 import { SearchableSelect } from './SearchableSelect';
@@ -194,60 +194,13 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
 
   return (
     <div className="space-y-6">
-      {/* Pending Requisitions Banner — accounting/admin */}
+      {/* Pending count banner */}
       {canApprove && pendingReqs.length > 0 && (
-        <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4 space-y-3">
-          <h3 className="font-semibold text-amber-800 flex items-center gap-2">
-            <ClipboardList className="size-5" />
-            {tr('inv_pending_requests')} ({pendingReqs.length})
-          </h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{tr('inv_date')}</TableHead>
-                <TableHead>{tr('type')}</TableHead>
-                <TableHead>{tr('name')}</TableHead>
-                <TableHead>{tr('inv_quantity')}</TableHead>
-                <TableHead>{tr('inv_performed_by')}</TableHead>
-                <TableHead>{tr('inv_notes')}</TableHead>
-                <TableHead className="text-right">{tr('actions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pendingReqs.map(req => (
-                <TableRow key={req._rowIndex} className="bg-amber-50/50">
-                  <TableCell className="text-sm">{req.date}</TableCell>
-                  <TableCell>{typeBadge(req.type)}</TableCell>
-                  <TableCell className="font-medium">{req.item_name}</TableCell>
-                  <TableCell>{req.quantity}</TableCell>
-                  <TableCell className="text-sm">{req.performed_by}</TableCell>
-                  <TableCell className="text-sm max-w-[150px] truncate">{req.notes}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 h-7 px-2"
-                        onClick={() => handleApprove(req)}
-                        disabled={approvingRow === req._rowIndex}
-                      >
-                        {approvingRow === req._rowIndex ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3 mr-1" />}
-                        {tr('inv_approve')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-7 px-2"
-                        onClick={() => handleReject(req)}
-                        disabled={approvingRow === req._rowIndex}
-                      >
-                        <X className="size-3 mr-1" /> {tr('inv_reject')}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <ClipboardList className="size-5 shrink-0" />
+          <span className="font-medium">
+            {pendingReqs.length} {tr('inv_pending_requests')}
+          </span>
         </div>
       )}
 
@@ -413,14 +366,57 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
         </TableHeader>
         <TableBody>
           {requisitions.map((req, idx) => (
-            <TableRow key={req._rowIndex}>
+            <TableRow key={req._rowIndex} className={req.status === 'Pending' ? 'bg-amber-50/50' : ''}>
               <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
               <TableCell className="text-sm">{req.date}</TableCell>
               <TableCell>{typeBadge(req.type)}</TableCell>
               <TableCell className="font-medium">{req.item_name}</TableCell>
               <TableCell>{req.quantity}</TableCell>
               <TableCell>{directionBadge(req.direction)}</TableCell>
-              <TableCell>{statusBadge(req.status)}</TableCell>
+              <TableCell>
+                {canApprove ? (
+                  <select
+                    value={req.status || 'Pending'}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      if (newStatus === req.status) return;
+                      setApprovingRow(req._rowIndex);
+                      try {
+                        if (newStatus === 'Approved') {
+                          await approveRequisition(req._rowIndex);
+                          toast.success(tr('inv_req_approved'));
+                        } else if (newStatus === 'Rejected') {
+                          await rejectRequisition(req._rowIndex);
+                          toast.success(tr('inv_req_rejected'));
+                        } else if (newStatus === 'Out of Stock') {
+                          await outOfStockRequisition(req._rowIndex);
+                          toast.success(tr('inv_req_out_of_stock'));
+                        }
+                        await fetchAll();
+                      } catch (err: any) {
+                        toast.error(err.message || tr('inv_failed_approve'));
+                      } finally {
+                        setApprovingRow(null);
+                      }
+                    }}
+                    disabled={approvingRow === req._rowIndex}
+                    className={`h-7 rounded-md border text-xs font-medium px-2 py-0.5 outline-none cursor-pointer ${
+                      req.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-200' :
+                      req.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-200' :
+                      req.status === 'Out of Stock' ? 'bg-gray-100 text-gray-700 border-gray-200' :
+                      'bg-amber-100 text-amber-800 border-amber-200'
+                    }`}
+                  >
+                    <option value="Pending">{tr('inv_status_pending')}</option>
+                    <option value="Approved">{tr('inv_status_approved')}</option>
+                    <option value="Rejected">{tr('inv_status_rejected')}</option>
+                    <option value="Out of Stock">{tr('inv_status_out_of_stock')}</option>
+                  </select>
+                ) : (
+                  statusBadge(req.status)
+                )}
+                {approvingRow === req._rowIndex && <Loader2 className="size-3 animate-spin inline ml-1" />}
+              </TableCell>
               <TableCell className="text-sm text-muted-foreground">{req.performed_by}</TableCell>
               <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{req.notes}</TableCell>
             </TableRow>

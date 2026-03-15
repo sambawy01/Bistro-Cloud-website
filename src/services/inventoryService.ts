@@ -221,6 +221,18 @@ export async function rejectRequisition(rowIndex: number): Promise<void> {
 }
 
 /**
+ * Mark requisition as Out of Stock: sets status, no stock change.
+ */
+export async function outOfStockRequisition(rowIndex: number): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'outOfStockRequisition',
+    password: pw(),
+    rowIndex: String(rowIndex),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to update requisition');
+}
+
+/**
  * Chef submits recipe requisition: creates Pending entries, NO stock deduction.
  */
 export async function submitRecipeRequisition(

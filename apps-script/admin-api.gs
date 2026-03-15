@@ -18,8 +18,8 @@ const OPPORTUNITIES_SHEET = 'Opportunities';
 const NOTIFICATION_EMAIL = 'bistrocloud3@gmail.com';
 // Role-based passwords
 function getRole(pw) {
-  if (pw === 'Bistro2026!') return 'admin';
-  if (pw === 'Bistro2026') return 'chef';
+  if (pw === 'Bistro001') return 'admin';
+  if (pw === 'Bistro2026!') return 'chef';
   if (pw === 'BC2026!') return 'accounting';
   return null;
 }
@@ -160,6 +160,8 @@ function doGet(e) {
         return jsonpResponse(callback, requisitionApprove(parseInt(params.rowIndex)));
       case 'rejectRequisition':
         return jsonpResponse(callback, requisitionReject(parseInt(params.rowIndex)));
+      case 'outOfStockRequisition':
+        return jsonpResponse(callback, requisitionOutOfStock(parseInt(params.rowIndex)));
       default:
         return jsonpResponse(callback, { success: false, error: 'Unknown action: ' + action });
     }
@@ -879,6 +881,20 @@ function requisitionReject(rowIndex) {
   if (statusCol < 0) throw new Error('Status column not found');
 
   reqSheet.getRange(rowIndex, statusCol + 1).setValue('Rejected');
+  return { success: true };
+}
+
+function requisitionOutOfStock(rowIndex) {
+  var reqSheet = invGetSheet('Requisitions');
+  var reqHeaders = reqSheet.getRange(1, 1, 1, reqSheet.getLastColumn()).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  if (rowIndex < 2 || rowIndex > reqSheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+
+  var statusCol = reqHeaders.indexOf('status');
+  if (statusCol < 0) throw new Error('Status column not found');
+
+  reqSheet.getRange(rowIndex, statusCol + 1).setValue('Out of Stock');
   return { success: true };
 }
 
