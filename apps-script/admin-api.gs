@@ -122,6 +122,33 @@ function doGet(e) {
         return jsonpResponse(callback, adminTogglePantryVisibility(parseInt(params.rowIndex), params.status));
       case 'archiveOrder':
         return jsonpResponse(callback, adminArchiveOrder(parseInt(params.rowIndex)));
+      // ── Inventory (Stock) CRUD ──
+      case 'getStock':
+        return jsonpResponse(callback, inventoryGetAll());
+      case 'addStockItem':
+        return jsonpResponse(callback, inventoryAdd(params.item));
+      case 'editStockItem':
+        return jsonpResponse(callback, inventoryEdit(parseInt(params.rowIndex), params.item));
+      case 'deleteStockItem':
+        return jsonpResponse(callback, inventoryDelete(parseInt(params.rowIndex)));
+      // ── Recipe CRUD ──
+      case 'getRecipes':
+        return jsonpResponse(callback, recipeGetAll());
+      case 'addRecipe':
+        return jsonpResponse(callback, recipeAdd(params.item));
+      case 'editRecipe':
+        return jsonpResponse(callback, recipeEdit(parseInt(params.rowIndex), params.item));
+      case 'deleteRecipe':
+        return jsonpResponse(callback, recipeDelete(parseInt(params.rowIndex)));
+      // ── Requisitions ──
+      case 'getRequisitions':
+        return jsonpResponse(callback, requisitionGetAll());
+      case 'addRequisition':
+        return jsonpResponse(callback, requisitionAdd(params.item));
+      case 'editRequisition':
+        return jsonpResponse(callback, requisitionEdit(parseInt(params.rowIndex), params.item));
+      case 'deleteRequisition':
+        return jsonpResponse(callback, requisitionDelete(parseInt(params.rowIndex)));
       default:
         return jsonpResponse(callback, { success: false, error: 'Unknown action: ' + action });
     }
@@ -580,6 +607,188 @@ function sendInternalNotification(data, formType) {
   } catch (error) {
     Logger.log('Error sending internal notification: ' + error.toString());
   }
+}
+
+// ============ INVENTORY SYSTEM ============
+// Sheet ID — user creates a Google Sheet called "Bistro Inventory"
+// with tabs: Stock, Recipes, Requisitions and pastes this ID below.
+var INVENTORY_SHEET_ID = '1PCTv4q_Gex7a6H9TQAShEN9JnJmJpypuAWatPGemhVA';
+
+function invGetSheet(tabName) {
+  var ss = SpreadsheetApp.openById(INVENTORY_SHEET_ID);
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet) throw new Error('Tab "' + tabName + '" not found in Bistro Inventory sheet');
+  return sheet;
+}
+
+function invReadRows(tabName) {
+  var sheet = invGetSheet(tabName);
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) return { sheet: sheet, headers: [], rows: [] };
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var items = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (row.every(function(c) { return String(c).trim() === ''; })) continue;
+    var item = { _rowIndex: i + 2 };
+    for (var j = 0; j < headers.length; j++) {
+      var val = row[j];
+      var h = headers[j];
+      if (h === 'id' || h === 'qty_on_hand' || h === 'min_level' || h === 'cost_per_unit' || h === 'qty_needed' || h === 'quantity') {
+        item[h] = val === '' ? 0 : (isNaN(Number(val)) ? val : Number(val));
+      } else {
+        item[h] = val !== undefined ? String(val) : '';
+      }
+    }
+    items.push(item);
+  }
+  return { sheet: sheet, headers: headers, rows: items };
+}
+
+// ── Inventory CRUD ──
+
+function inventoryGetAll() {
+  var result = invReadRows('Stock');
+  return { success: true, items: result.rows };
+}
+
+function inventoryAdd(itemStr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = invGetSheet('Stock');
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) {
+      return String(h).trim().toLowerCase().replace(/ /g, '_');
+    });
+    var item = JSON.parse(itemStr);
+    if (!item.id) item.id = Date.now();
+    item.last_restocked = new Date().toISOString().split('T')[0];
+    var newRow = headers.map(function(h) { return item[h] !== undefined ? item[h] : ''; });
+    sheet.appendRow(newRow);
+    return { success: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function inventoryEdit(rowIndex, itemStr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = invGetSheet('Stock');
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) {
+      return String(h).trim().toLowerCase().replace(/ /g, '_');
+    });
+    var item = JSON.parse(itemStr);
+    if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+    for (var j = 0; j < headers.length; j++) {
+      var h = headers[j];
+      if (h === 'id') continue;
+      if (item.hasOwnProperty(h)) sheet.getRange(rowIndex, j + 1).setValue(item[h]);
+    }
+    return { success: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function inventoryDelete(rowIndex) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = invGetSheet('Stock');
+    if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+    sheet.deleteRow(rowIndex);
+    return { success: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ── Recipe CRUD ──
+
+function recipeGetAll() {
+  var result = invReadRows('Recipes');
+  return { success: true, items: result.rows };
+}
+
+function recipeAdd(itemStr) {
+  var sheet = invGetSheet('Recipes');
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var item = JSON.parse(itemStr);
+  if (!item.id) item.id = Date.now();
+  var newRow = headers.map(function(h) { return item[h] !== undefined ? item[h] : ''; });
+  sheet.appendRow(newRow);
+  return { success: true };
+}
+
+function recipeEdit(rowIndex, itemStr) {
+  var sheet = invGetSheet('Recipes');
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var item = JSON.parse(itemStr);
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  for (var j = 0; j < headers.length; j++) {
+    var h = headers[j];
+    if (h === 'id') continue;
+    if (item.hasOwnProperty(h)) sheet.getRange(rowIndex, j + 1).setValue(item[h]);
+  }
+  return { success: true };
+}
+
+function recipeDelete(rowIndex) {
+  var sheet = invGetSheet('Recipes');
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  sheet.deleteRow(rowIndex);
+  return { success: true };
+}
+
+// ── Requisitions CRUD ──
+
+function requisitionGetAll() {
+  var result = invReadRows('Requisitions');
+  // Return newest first
+  result.rows.reverse();
+  return { success: true, items: result.rows };
+}
+
+function requisitionAdd(itemStr) {
+  var sheet = invGetSheet('Requisitions');
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var item = JSON.parse(itemStr);
+  var newRow = headers.map(function(h) { return item[h] !== undefined ? item[h] : ''; });
+  sheet.appendRow(newRow);
+  return { success: true };
+}
+
+function requisitionEdit(rowIndex, itemStr) {
+  var sheet = invGetSheet('Requisitions');
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var item = JSON.parse(itemStr);
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  for (var j = 0; j < headers.length; j++) {
+    var h = headers[j];
+    if (item.hasOwnProperty(h)) sheet.getRange(rowIndex, j + 1).setValue(item[h]);
+  }
+  return { success: true };
+}
+
+function requisitionDelete(rowIndex) {
+  var sheet = invGetSheet('Requisitions');
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  sheet.deleteRow(rowIndex);
+  return { success: true };
 }
 
 // ============ TEST FUNCTION ============

@@ -7,7 +7,9 @@ import { AdminLogin } from './AdminLogin';
 import { MenuTab } from './MenuTab';
 import { PantryTab } from './PantryTab';
 import { RamadanTab } from './RamadanTab';
-import { LogOut, Loader2, UtensilsCrossed, Package, Moon, Languages } from 'lucide-react';
+import { InventoryTab } from './InventoryTab';
+import { RequisitionsTab } from './RequisitionsTab';
+import { LogOut, Loader2, UtensilsCrossed, Package, Moon, Languages, Warehouse, ClipboardList } from 'lucide-react';
 
 export function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -85,11 +87,19 @@ export function AdminPage() {
             <TabsTrigger value="pantry">
               <Package className="size-4 mr-1.5" /> {tr('pantry')}
             </TabsTrigger>
+            <TabsTrigger value="inventory">
+              <Warehouse className="size-4 mr-1.5" /> {tr('inventory')}
+            </TabsTrigger>
+            <TabsTrigger value="requisitions">
+              <ClipboardList className="size-4 mr-1.5" /> {tr('requisitions')}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="menu"><MenuTab l={l} /></TabsContent>
           <TabsContent value="ramadan"><RamadanTab l={l} /></TabsContent>
           <TabsContent value="pantry"><PantryTab l={l} /></TabsContent>
+          <TabsContent value="inventory"><InventoryTab l={l} /></TabsContent>
+          <TabsContent value="requisitions"><RequisitionsTab l={l} /></TabsContent>
         </Tabs>
       </main>
     </div>
