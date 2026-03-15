@@ -16,7 +16,13 @@ const SPREADSHEET_ID = '1bEt7BVbWfQzlt8t1qh92FxX0e7M-R-_EPvMdU8wJv5M';
 const PEOPLE_SHEET = 'People';
 const OPPORTUNITIES_SHEET = 'Opportunities';
 const NOTIFICATION_EMAIL = 'bistrocloud3@gmail.com';
-const ADMIN_PASSWORD = 'Bistro2026!';
+// Role-based passwords
+function getRole(pw) {
+  if (pw === 'Bistro2026!') return 'admin';
+  if (pw === 'Bistro2026') return 'chef';
+  if (pw === 'BC2026!') return 'accounting';
+  return null;
+}
 // ========================================
 
 function doPost(e) {
@@ -87,8 +93,9 @@ function doGet(e) {
     })).setMimeType(ContentService.MimeType.JSON);
   }
 
-  // ── Admin actions: all require password ──
-  if (password !== ADMIN_PASSWORD) {
+  // ── Admin actions: all require valid role password ──
+  var role = getRole(password);
+  if (!role) {
     return jsonpResponse(callback, { success: false, error: 'Unauthorized' });
   }
 
@@ -96,7 +103,7 @@ function doGet(e) {
     switch (action) {
       // ── Read actions ──
       case 'verify':
-        return jsonpResponse(callback, { success: true, message: 'Authenticated' });
+        return jsonpResponse(callback, { success: true, role: role });
       case 'getMenu':
         return jsonpResponse(callback, adminGetMenu());
       case 'getPantry':
@@ -149,6 +156,10 @@ function doGet(e) {
         return jsonpResponse(callback, requisitionEdit(parseInt(params.rowIndex), params.item));
       case 'deleteRequisition':
         return jsonpResponse(callback, requisitionDelete(parseInt(params.rowIndex)));
+      case 'approveRequisition':
+        return jsonpResponse(callback, requisitionApprove(parseInt(params.rowIndex)));
+      case 'rejectRequisition':
+        return jsonpResponse(callback, requisitionReject(parseInt(params.rowIndex)));
       default:
         return jsonpResponse(callback, { success: false, error: 'Unknown action: ' + action });
     }
@@ -788,6 +799,86 @@ function requisitionDelete(rowIndex) {
   var sheet = invGetSheet('Requisitions');
   if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
   sheet.deleteRow(rowIndex);
+  return { success: true };
+}
+
+/**
+ * Approve a pending requisition: deduct from stock + set status to Approved.
+ */
+function requisitionApprove(rowIndex) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var reqSheet = invGetSheet('Requisitions');
+    var reqHeaders = reqSheet.getRange(1, 1, 1, reqSheet.getLastColumn()).getValues()[0].map(function(h) {
+      return String(h).trim().toLowerCase().replace(/ /g, '_');
+    });
+    if (rowIndex < 2 || rowIndex > reqSheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+
+    var statusCol = reqHeaders.indexOf('status');
+    var itemNameCol = reqHeaders.indexOf('item_name');
+    var qtyCol = reqHeaders.indexOf('quantity');
+    var dirCol = reqHeaders.indexOf('direction');
+    if (statusCol < 0 || itemNameCol < 0 || qtyCol < 0) throw new Error('Required columns not found in Requisitions tab');
+
+    // Check it's still pending
+    var currentStatus = String(reqSheet.getRange(rowIndex, statusCol + 1).getValue()).trim();
+    if (currentStatus !== 'Pending') throw new Error('Requisition is not Pending (status: ' + currentStatus + ')');
+
+    var itemName = String(reqSheet.getRange(rowIndex, itemNameCol + 1).getValue());
+    var quantity = Number(reqSheet.getRange(rowIndex, qtyCol + 1).getValue()) || 0;
+    var direction = String(reqSheet.getRange(rowIndex, dirCol + 1).getValue()).trim();
+
+    // Deduct from stock (only for OUT direction)
+    if (direction === 'OUT' && quantity > 0) {
+      var stockSheet = invGetSheet('Stock');
+      var stockHeaders = stockSheet.getRange(1, 1, 1, stockSheet.getLastColumn()).getValues()[0].map(function(h) {
+        return String(h).trim().toLowerCase().replace(/ /g, '_');
+      });
+      var stockNameCol = stockHeaders.indexOf('name');
+      var stockQtyCol = stockHeaders.indexOf('qty_on_hand');
+      if (stockNameCol < 0 || stockQtyCol < 0) throw new Error('Required columns not found in Stock tab');
+
+      var found = false;
+      var lastRow = stockSheet.getLastRow();
+      for (var r = 2; r <= lastRow; r++) {
+        var stockName = String(stockSheet.getRange(r, stockNameCol + 1).getValue());
+        if (stockName.toLowerCase() === itemName.toLowerCase()) {
+          var currentQty = Number(stockSheet.getRange(r, stockQtyCol + 1).getValue()) || 0;
+          var newQty = Math.max(0, currentQty - quantity);
+          stockSheet.getRange(r, stockQtyCol + 1).setValue(newQty);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        // Still approve but note the item wasn't found
+        reqSheet.getRange(rowIndex, statusCol + 1).setValue('Approved');
+        return { success: true, warning: 'Stock item "' + itemName + '" not found — approved without deduction' };
+      }
+    }
+
+    reqSheet.getRange(rowIndex, statusCol + 1).setValue('Approved');
+    return { success: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Reject a pending requisition: set status to Rejected, no stock change.
+ */
+function requisitionReject(rowIndex) {
+  var reqSheet = invGetSheet('Requisitions');
+  var reqHeaders = reqSheet.getRange(1, 1, 1, reqSheet.getLastColumn()).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  if (rowIndex < 2 || rowIndex > reqSheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+
+  var statusCol = reqHeaders.indexOf('status');
+  if (statusCol < 0) throw new Error('Status column not found');
+
+  reqSheet.getRange(rowIndex, statusCol + 1).setValue('Rejected');
   return { success: true };
 }
 

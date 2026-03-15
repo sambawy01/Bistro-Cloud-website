@@ -1,5 +1,8 @@
 const ADMIN_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzN-s2iKeyjIC_k-wyNzj6QHOO5eoW14EqWo7fC4kYzYzqyMOygZpCDPpyqPVxhFA/exec';
 const STORAGE_KEY = 'bc-admin-pw';
+const ROLE_KEY = 'bc-admin-role';
+
+export type Role = 'admin' | 'chef' | 'accounting';
 
 export interface AdminItem {
   _rowIndex: number;
@@ -31,6 +34,18 @@ export function clearStoredPassword() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+export function getStoredRole(): Role | null {
+  return localStorage.getItem(ROLE_KEY) as Role | null;
+}
+
+export function setStoredRole(role: Role) {
+  localStorage.setItem(ROLE_KEY, role);
+}
+
+export function clearStoredRole() {
+  localStorage.removeItem(ROLE_KEY);
+}
+
 /**
  * All requests use GET to avoid the Google Apps Script 302 redirect problem.
  * POST requests lose their body during the 302 redirect from script.google.com
@@ -43,15 +58,18 @@ async function apiGet<T>(params: Record<string, string>): Promise<T> {
   return res.json();
 }
 
-export async function verifyPassword(password: string): Promise<boolean> {
+export async function verifyPassword(password: string): Promise<{ valid: boolean; role?: Role }> {
   try {
-    const res = await apiGet<{ success: boolean }>({
+    const res = await apiGet<{ success: boolean; role?: Role }>({
       action: 'verify',
       password,
     });
-    return res.success === true;
+    if (res.success && res.role) {
+      return { valid: true, role: res.role };
+    }
+    return { valid: res.success === true };
   } catch {
-    return false;
+    return { valid: false };
   }
 }
 

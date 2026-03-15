@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
 import { Button } from '@/app/components/ui/button';
-import { getStoredPassword, clearStoredPassword, verifyPassword } from '@/services/adminService';
+import { getStoredPassword, clearStoredPassword, verifyPassword, getStoredRole, clearStoredRole, Role } from '@/services/adminService';
 import { useAdminLang } from './useAdminLang';
 import { AdminLogin } from './AdminLogin';
 import { MenuTab } from './MenuTab';
@@ -11,9 +11,16 @@ import { InventoryTab } from './InventoryTab';
 import { RequisitionsTab } from './RequisitionsTab';
 import { LogOut, Loader2, Globe, Warehouse, Languages, UtensilsCrossed, Package, Moon, ClipboardList, BoxesIcon } from 'lucide-react';
 
+const ROLE_LABELS: Record<Role, Record<'en' | 'ar', string>> = {
+  admin: { en: 'Admin', ar: 'إدارة' },
+  chef: { en: 'Chef', ar: 'شيف' },
+  accounting: { en: 'Accounting', ar: 'محاسبة' },
+};
+
 export function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [role, setRole] = useState<Role | null>(null);
   const [section, setSection] = useState<'website' | 'inventory'>('website');
   const l = useAdminLang();
   const { tr, lang, setLang, dir } = l;
@@ -24,16 +31,33 @@ export function AdminPage() {
       setChecking(false);
       return;
     }
-    verifyPassword(pw).then(valid => {
-      if (valid) setAuthed(true);
-      else clearStoredPassword();
+    verifyPassword(pw).then(result => {
+      if (result.valid && result.role) {
+        setAuthed(true);
+        setRole(result.role);
+        // Default section based on role
+        if (result.role === 'accounting') setSection('inventory');
+        else setSection('website');
+      } else {
+        clearStoredPassword();
+        clearStoredRole();
+      }
       setChecking(false);
     });
   }, []);
 
+  function handleLogin(r: Role) {
+    setAuthed(true);
+    setRole(r);
+    if (r === 'accounting') setSection('inventory');
+    else setSection('website');
+  }
+
   function handleLogout() {
     clearStoredPassword();
+    clearStoredRole();
     setAuthed(false);
+    setRole(null);
   }
 
   if (checking) {
@@ -52,9 +76,26 @@ export function AdminPage() {
             <Languages className="size-4 mr-1" /> {lang === 'en' ? 'عربي' : 'English'}
           </Button>
         </div>
-        <AdminLogin onLogin={() => setAuthed(true)} l={l} />
+        <AdminLogin onLogin={handleLogin} l={l} />
       </div>
     );
+  }
+
+  // Role-based visibility
+  const canSeeWebsite = role === 'admin' || role === 'chef';
+  const canSeeInventory = role === 'admin' || role === 'accounting';
+  const canSeeKitchenReqs = role === 'chef';
+
+  // Determine available sections for this role
+  const sections: { key: 'website' | 'inventory'; label: string; icon: React.ReactNode }[] = [];
+  if (canSeeWebsite) {
+    sections.push({ key: 'website', label: tr('section_website'), icon: <Globe className="size-4" /> });
+  }
+  if (canSeeInventory) {
+    sections.push({ key: 'inventory', label: tr('section_inventory'), icon: <Warehouse className="size-4" /> });
+  }
+  if (canSeeKitchenReqs) {
+    sections.push({ key: 'inventory', label: tr('section_kitchen'), icon: <ClipboardList className="size-4" /> });
   }
 
   return (
@@ -63,7 +104,9 @@ export function AdminPage() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-[#2C3E50]">{tr('bistro_cloud')}</h1>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{tr('admin')}</span>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              {role ? ROLE_LABELS[role][lang] : tr('admin')}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}>
@@ -76,34 +119,30 @@ export function AdminPage() {
         </div>
       </header>
 
-      {/* Top-level section switcher */}
-      <div className="bg-white border-b">
-        <div className="max-w-6xl mx-auto px-4 flex gap-1 py-1">
-          <button
-            onClick={() => setSection('website')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              section === 'website'
-                ? 'bg-[#2C3E50] text-white'
-                : 'text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            <Globe className="size-4" /> {tr('section_website')}
-          </button>
-          <button
-            onClick={() => setSection('inventory')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              section === 'inventory'
-                ? 'bg-[#2C3E50] text-white'
-                : 'text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            <Warehouse className="size-4" /> {tr('section_inventory')}
-          </button>
+      {/* Top-level section switcher — only show if user has more than 1 section */}
+      {sections.length > 1 && (
+        <div className="bg-white border-b">
+          <div className="max-w-6xl mx-auto px-4 flex gap-1 py-1">
+            {sections.map(s => (
+              <button
+                key={s.key + s.label}
+                onClick={() => setSection(s.key)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  section === s.key
+                    ? 'bg-[#2C3E50] text-white'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {s.icon} {s.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <main className="max-w-6xl mx-auto px-4 py-6">
-        {section === 'website' && (
+        {/* Website section — admin & chef */}
+        {section === 'website' && canSeeWebsite && (
           <Tabs defaultValue="menu">
             <TabsList className="mb-6">
               <TabsTrigger value="menu">
@@ -123,20 +162,29 @@ export function AdminPage() {
           </Tabs>
         )}
 
+        {/* Inventory section — admin & accounting see full, chef sees kitchen requisitions */}
         {section === 'inventory' && (
-          <Tabs defaultValue="stock">
-            <TabsList className="mb-6">
-              <TabsTrigger value="stock">
-                <BoxesIcon className="size-4 mr-1.5" /> {tr('inv_stock_items')}
-              </TabsTrigger>
-              <TabsTrigger value="requisitions">
-                <ClipboardList className="size-4 mr-1.5" /> {tr('requisitions')}
-              </TabsTrigger>
-            </TabsList>
+          <>
+            {(canSeeInventory) && (
+              <Tabs defaultValue="stock">
+                <TabsList className="mb-6">
+                  <TabsTrigger value="stock">
+                    <BoxesIcon className="size-4 mr-1.5" /> {tr('inv_stock_items')}
+                  </TabsTrigger>
+                  <TabsTrigger value="requisitions">
+                    <ClipboardList className="size-4 mr-1.5" /> {tr('requisitions')}
+                  </TabsTrigger>
+                </TabsList>
 
-            <TabsContent value="stock"><InventoryTab l={l} /></TabsContent>
-            <TabsContent value="requisitions"><RequisitionsTab l={l} /></TabsContent>
-          </Tabs>
+                <TabsContent value="stock"><InventoryTab l={l} /></TabsContent>
+                <TabsContent value="requisitions"><RequisitionsTab l={l} role={role!} /></TabsContent>
+              </Tabs>
+            )}
+
+            {canSeeKitchenReqs && (
+              <RequisitionsTab l={l} role={role!} />
+            )}
+          </>
         )}
       </main>
     </div>

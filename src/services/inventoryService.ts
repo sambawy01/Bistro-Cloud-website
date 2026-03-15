@@ -49,9 +49,10 @@ export interface Requisition {
   direction: string;
   performed_by: string;
   notes: string;
+  status: string;
 }
 
-// ── Stock CRUD (matches deployed: getStock, addStockItem, editStockItem, deleteStockItem) ──
+// ── Stock CRUD ──
 
 export async function getInventory(): Promise<StockItem[]> {
   const res = await apiGet<{ success: boolean; items?: StockItem[]; error?: string }>({
@@ -90,21 +91,16 @@ export async function deleteInventoryItem(rowIndex: number): Promise<void> {
   if (!res.success) throw new Error(res.error || 'Failed to delete inventory item');
 }
 
-/**
- * Restock: updates stock qty via editStockItem, then logs a Restock requisition.
- * Done client-side since the deployed API uses generic CRUD.
- */
+/** Restock: updates stock qty then logs an approved Restock requisition */
 export async function restockItem(rowIndex: number, quantity: number, performedBy: string, currentItem: StockItem): Promise<void> {
   const newQty = Number(currentItem.qty_on_hand) + quantity;
   const today = new Date().toISOString().split('T')[0];
 
-  // Update stock quantity + last_restocked
   await editInventoryItem(rowIndex, {
     qty_on_hand: String(newQty),
     last_restocked: today,
   });
 
-  // Log the requisition
   await addRequisition({
     date: today,
     type: 'Restock',
@@ -113,10 +109,11 @@ export async function restockItem(rowIndex: number, quantity: number, performedB
     direction: 'IN',
     performed_by: performedBy,
     notes: 'Restocked +' + quantity,
+    status: 'Approved',
   });
 }
 
-// ── Recipe CRUD (matches deployed: getRecipes, addRecipe, editRecipe, deleteRecipe) ──
+// ── Recipe CRUD ──
 
 export async function getRecipes(): Promise<Recipe[]> {
   const res = await apiGet<{ success: boolean; items?: Recipe[]; error?: string }>({
@@ -127,7 +124,6 @@ export async function getRecipes(): Promise<Recipe[]> {
   return res.items || [];
 }
 
-/** Client-side filter — fetches all recipes then filters by menu_item */
 export async function getRecipeFor(menuItem: string): Promise<Recipe[]> {
   const all = await getRecipes();
   return all.filter(r => String(r.menu_item).toLowerCase() === menuItem.toLowerCase());
@@ -161,7 +157,7 @@ export async function deleteRecipe(rowIndex: number): Promise<void> {
   if (!res.success) throw new Error(res.error || 'Failed to delete recipe');
 }
 
-// ── Requisitions (matches deployed: getRequisitions, addRequisition, editRequisition, deleteRequisition) ──
+// ── Requisitions ──
 
 export async function getRequisitions(): Promise<Requisition[]> {
   const res = await apiGet<{ success: boolean; items?: Requisition[]; error?: string }>({
@@ -181,6 +177,16 @@ export async function addRequisition(item: Record<string, string>): Promise<void
   if (!res.success) throw new Error(res.error || 'Failed to add requisition');
 }
 
+export async function editRequisition(rowIndex: number, item: Record<string, string>): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'editRequisition',
+    password: pw(),
+    rowIndex: String(rowIndex),
+    item: JSON.stringify(item),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to update requisition');
+}
+
 export async function deleteRequisition(rowIndex: number): Promise<void> {
   const res = await apiGet<{ success: boolean; error?: string }>({
     action: 'deleteRequisition',
@@ -191,14 +197,36 @@ export async function deleteRequisition(rowIndex: number): Promise<void> {
 }
 
 /**
- * Deduct by recipe: fetch recipe ingredients, update each stock item, log requisitions.
- * Multi-step client-side since the deployed API is generic CRUD.
+ * Approve a requisition: server-side deducts stock + sets status to Approved.
  */
-export async function deductByRecipe(
+export async function approveRequisition(rowIndex: number): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'approveRequisition',
+    password: pw(),
+    rowIndex: String(rowIndex),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to approve requisition');
+}
+
+/**
+ * Reject a requisition: sets status to Rejected, no stock change.
+ */
+export async function rejectRequisition(rowIndex: number): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'rejectRequisition',
+    password: pw(),
+    rowIndex: String(rowIndex),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to reject requisition');
+}
+
+/**
+ * Chef submits recipe requisition: creates Pending entries, NO stock deduction.
+ */
+export async function submitRecipeRequisition(
   menuItem: string,
   portions: number,
   performedBy: string,
-  stockItems: StockItem[]
 ): Promise<void> {
   const ingredients = await getRecipeFor(menuItem);
   if (ingredients.length === 0) throw new Error('No recipe found for "' + menuItem + '"');
@@ -207,15 +235,6 @@ export async function deductByRecipe(
 
   for (const ing of ingredients) {
     const totalNeeded = Number(ing.qty_needed) * portions;
-    const stockItem = stockItems.find(
-      s => s.name.toLowerCase() === String(ing.ingredient).toLowerCase()
-    );
-
-    if (stockItem) {
-      const newQty = Math.max(0, Number(stockItem.qty_on_hand) - totalNeeded);
-      await editInventoryItem(stockItem._rowIndex, { qty_on_hand: String(newQty) });
-    }
-
     await addRequisition({
       date: today,
       type: 'Recipe',
@@ -223,29 +242,22 @@ export async function deductByRecipe(
       quantity: String(totalNeeded),
       direction: 'OUT',
       performed_by: performedBy,
-      notes: menuItem + ' x' + portions + (stockItem ? '' : ' (NOT IN STOCK)'),
+      notes: menuItem + ' x' + portions,
+      status: 'Pending',
     });
   }
 }
 
 /**
- * Manual deduction: update stock item qty, log requisition.
+ * Chef submits manual requisition: creates a Pending entry, NO stock deduction.
  */
-export async function deductManual(
+export async function submitManualRequisition(
   itemName: string,
   quantity: number,
   reason: string,
   performedBy: string,
-  stockItems: StockItem[]
 ): Promise<void> {
-  const stockItem = stockItems.find(s => s.name === itemName);
-  if (!stockItem) throw new Error('Stock item "' + itemName + '" not found');
-
-  const newQty = Math.max(0, Number(stockItem.qty_on_hand) - quantity);
   const today = new Date().toISOString().split('T')[0];
-
-  await editInventoryItem(stockItem._rowIndex, { qty_on_hand: String(newQty) });
-
   await addRequisition({
     date: today,
     type: 'Manual',
@@ -254,5 +266,6 @@ export async function deductManual(
     direction: 'OUT',
     performed_by: performedBy,
     notes: reason,
+    status: 'Pending',
   });
 }

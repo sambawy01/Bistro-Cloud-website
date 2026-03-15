@@ -84,6 +84,7 @@ const t: Record<string, Record<Lang, string>> = {
   // Sections
   'section_website': { en: 'Website', ar: 'الموقع' },
   'section_inventory': { en: 'Inventory', ar: 'المخزون' },
+  'section_kitchen': { en: 'Kitchen', ar: 'المطبخ' },
 
   // Inventory & Requisitions
   'inventory': { en: 'Inventory', ar: 'المخزون' },
@@ -153,6 +154,20 @@ const t: Record<string, Record<Lang, string>> = {
   'inv_no_requisitions': { en: 'No requisitions logged yet', ar: 'لا توجد طلبيات مسجلة' },
   'inv_date': { en: 'Date', ar: 'التاريخ' },
   'inv_direction': { en: 'Direction', ar: 'الاتجاه' },
+  'inv_submit_requisition': { en: 'Submit Requisition', ar: 'إرسال طلب' },
+  'inv_req_submitted': { en: 'Requisition submitted', ar: 'تم إرسال الطلب' },
+  'inv_failed_submit': { en: 'Failed to submit', ar: 'فشل الإرسال' },
+  'inv_pending_requests': { en: 'Pending Requests', ar: 'طلبات معلقة' },
+  'inv_approve': { en: 'Approve', ar: 'موافقة' },
+  'inv_reject': { en: 'Reject', ar: 'رفض' },
+  'inv_confirm_reject': { en: 'Reject this requisition for', ar: 'رفض هذا الطلب لـ' },
+  'inv_req_approved': { en: 'Requisition approved — stock deducted', ar: 'تمت الموافقة — تم الخصم من المخزون' },
+  'inv_req_rejected': { en: 'Requisition rejected', ar: 'تم رفض الطلب' },
+  'inv_failed_approve': { en: 'Failed to approve', ar: 'فشلت الموافقة' },
+  'inv_failed_reject': { en: 'Failed to reject', ar: 'فشل الرفض' },
+  'inv_status_pending': { en: 'Pending', ar: 'معلق' },
+  'inv_status_approved': { en: 'Approved', ar: 'تمت الموافقة' },
+  'inv_status_rejected': { en: 'Rejected', ar: 'مرفوض' },
 };
 
 const STORAGE_KEY = 'bc-admin-lang';

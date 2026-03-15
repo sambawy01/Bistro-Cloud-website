@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
-import { verifyPassword, setStoredPassword } from '@/services/adminService';
+import { verifyPassword, setStoredPassword, setStoredRole, Role } from '@/services/adminService';
 import { AdminLang } from './useAdminLang';
 
 interface AdminLoginProps {
-  onLogin: () => void;
+  onLogin: (role: Role) => void;
   l: AdminLang;
 }
 
@@ -23,10 +23,11 @@ export function AdminLogin({ onLogin, l }: AdminLoginProps) {
     setError('');
 
     try {
-      const valid = await verifyPassword(password.trim());
-      if (valid) {
+      const result = await verifyPassword(password.trim());
+      if (result.valid && result.role) {
         setStoredPassword(password.trim());
-        onLogin();
+        setStoredRole(result.role);
+        onLogin(result.role);
       } else {
         setError(tr('invalid_password'));
       }
