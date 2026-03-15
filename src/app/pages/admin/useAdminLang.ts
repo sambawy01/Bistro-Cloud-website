@@ -81,6 +81,10 @@ const t: Record<string, Record<Lang, string>> = {
   'update': { en: 'Update', ar: 'تحديث' },
   'saving': { en: 'Saving...', ar: 'جاري الحفظ...' },
 
+  // Sections
+  'section_website': { en: 'Website', ar: 'الموقع' },
+  'section_inventory': { en: 'Inventory', ar: 'المخزون' },
+
   // Inventory & Requisitions
   'inventory': { en: 'Inventory', ar: 'المخزون' },
   'requisitions': { en: 'Requisitions', ar: 'الطلبيات' },

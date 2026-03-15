@@ -9,11 +9,12 @@ import { PantryTab } from './PantryTab';
 import { RamadanTab } from './RamadanTab';
 import { InventoryTab } from './InventoryTab';
 import { RequisitionsTab } from './RequisitionsTab';
-import { LogOut, Loader2, UtensilsCrossed, Package, Moon, Languages, Warehouse, ClipboardList } from 'lucide-react';
+import { LogOut, Loader2, Globe, Warehouse, Languages, UtensilsCrossed, Package, Moon, ClipboardList, BoxesIcon } from 'lucide-react';
 
 export function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [section, setSection] = useState<'website' | 'inventory'>('website');
   const l = useAdminLang();
   const { tr, lang, setLang, dir } = l;
 
@@ -75,32 +76,68 @@ export function AdminPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        <Tabs defaultValue="menu">
-          <TabsList className="mb-6">
-            <TabsTrigger value="menu">
-              <UtensilsCrossed className="size-4 mr-1.5" /> {tr('menu')}
-            </TabsTrigger>
-            <TabsTrigger value="ramadan">
-              <Moon className="size-4 mr-1.5" /> {tr('ramadan')}
-            </TabsTrigger>
-            <TabsTrigger value="pantry">
-              <Package className="size-4 mr-1.5" /> {tr('pantry')}
-            </TabsTrigger>
-            <TabsTrigger value="inventory">
-              <Warehouse className="size-4 mr-1.5" /> {tr('inventory')}
-            </TabsTrigger>
-            <TabsTrigger value="requisitions">
-              <ClipboardList className="size-4 mr-1.5" /> {tr('requisitions')}
-            </TabsTrigger>
-          </TabsList>
+      {/* Top-level section switcher */}
+      <div className="bg-white border-b">
+        <div className="max-w-6xl mx-auto px-4 flex gap-1 py-1">
+          <button
+            onClick={() => setSection('website')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              section === 'website'
+                ? 'bg-[#2C3E50] text-white'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Globe className="size-4" /> {tr('section_website')}
+          </button>
+          <button
+            onClick={() => setSection('inventory')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              section === 'inventory'
+                ? 'bg-[#2C3E50] text-white'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Warehouse className="size-4" /> {tr('section_inventory')}
+          </button>
+        </div>
+      </div>
 
-          <TabsContent value="menu"><MenuTab l={l} /></TabsContent>
-          <TabsContent value="ramadan"><RamadanTab l={l} /></TabsContent>
-          <TabsContent value="pantry"><PantryTab l={l} /></TabsContent>
-          <TabsContent value="inventory"><InventoryTab l={l} /></TabsContent>
-          <TabsContent value="requisitions"><RequisitionsTab l={l} /></TabsContent>
-        </Tabs>
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {section === 'website' && (
+          <Tabs defaultValue="menu">
+            <TabsList className="mb-6">
+              <TabsTrigger value="menu">
+                <UtensilsCrossed className="size-4 mr-1.5" /> {tr('menu')}
+              </TabsTrigger>
+              <TabsTrigger value="ramadan">
+                <Moon className="size-4 mr-1.5" /> {tr('ramadan')}
+              </TabsTrigger>
+              <TabsTrigger value="pantry">
+                <Package className="size-4 mr-1.5" /> {tr('pantry')}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="menu"><MenuTab l={l} /></TabsContent>
+            <TabsContent value="ramadan"><RamadanTab l={l} /></TabsContent>
+            <TabsContent value="pantry"><PantryTab l={l} /></TabsContent>
+          </Tabs>
+        )}
+
+        {section === 'inventory' && (
+          <Tabs defaultValue="stock">
+            <TabsList className="mb-6">
+              <TabsTrigger value="stock">
+                <BoxesIcon className="size-4 mr-1.5" /> {tr('inv_stock_items')}
+              </TabsTrigger>
+              <TabsTrigger value="requisitions">
+                <ClipboardList className="size-4 mr-1.5" /> {tr('requisitions')}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="stock"><InventoryTab l={l} /></TabsContent>
+            <TabsContent value="requisitions"><RequisitionsTab l={l} /></TabsContent>
+          </Tabs>
+        )}
       </main>
     </div>
   );
