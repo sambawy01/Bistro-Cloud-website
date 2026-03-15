@@ -15,10 +15,10 @@ import { AdminLang } from './useAdminLang';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Loader2, ArrowUp, ArrowDown, Search } from 'lucide-react';
 
-type SortKey = 'name' | 'category' | 'price' | 'status' | 'visible';
+type SortKey = 'name' | 'price' | 'status' | 'visible';
 type SortDir = 'asc' | 'desc';
 
-export function MenuTab({ l }: { l: AdminLang }) {
+export function RamadanTab({ l }: { l: AdminLang }) {
   const { tr } = l;
   const [items, setItems] = useState<AdminItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +33,7 @@ export function MenuTab({ l }: { l: AdminLang }) {
     if (!pw) return;
     try {
       const data = await getMenuItems(pw);
-      setItems(data.filter(i => i.category.toLowerCase() !== 'ramadan'));
+      setItems(data.filter(i => i.category.toLowerCase() === 'ramadan'));
     } catch (err) {
       toast.error(tr('failed_load_menu'));
       console.error(err);
@@ -50,6 +50,8 @@ export function MenuTab({ l }: { l: AdminLang }) {
   async function handleSave(data: Record<string, string>) {
     const pw = getStoredPassword();
     if (!pw) return;
+    // Force category to Ramadan for new items
+    if (!editItem) data.category = 'Ramadan';
     if (editItem) {
       await editMenuItem(pw, editItem._rowIndex, data);
       toast.success(tr('item_updated'));
@@ -92,7 +94,6 @@ export function MenuTab({ l }: { l: AdminLang }) {
       const q = search.toLowerCase();
       filtered = items.filter(item =>
         item.name.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
         item.dietary.toLowerCase().includes(q) ||
         item.description.toLowerCase().includes(q)
       );
@@ -102,7 +103,6 @@ export function MenuTab({ l }: { l: AdminLang }) {
       let aVal: string | number, bVal: string | number;
       switch (sortKey) {
         case 'name': aVal = a.name.toLowerCase(); bVal = b.name.toLowerCase(); break;
-        case 'category': aVal = a.category.toLowerCase(); bVal = b.category.toLowerCase(); break;
         case 'price': aVal = Number(a.price) || 0; bVal = Number(b.price) || 0; break;
         case 'status': aVal = a.status; bVal = b.status; break;
         case 'visible': {
@@ -122,24 +122,6 @@ export function MenuTab({ l }: { l: AdminLang }) {
     return sortDir === 'asc' ? <ArrowUp className="size-3 inline ml-1" /> : <ArrowDown className="size-3 inline ml-1" />;
   }
 
-  const CATEGORY_COLORS: Record<string, string> = {
-    'main course': 'bg-blue-100 text-blue-800',
-    'mains': 'bg-blue-100 text-blue-800',
-    'salad': 'bg-green-100 text-green-800',
-    'salads': 'bg-green-100 text-green-800',
-    'sandwich': 'bg-amber-100 text-amber-800',
-    'sandwiches': 'bg-amber-100 text-amber-800',
-    'sides': 'bg-purple-100 text-purple-800',
-    'desserts': 'bg-pink-100 text-pink-800',
-    'drinks': 'bg-cyan-100 text-cyan-800',
-    'breakfast': 'bg-orange-100 text-orange-800',
-    'ramadan': 'bg-emerald-100 text-emerald-800',
-  };
-
-  function categoryColor(cat: string): string {
-    return CATEGORY_COLORS[cat.toLowerCase()] || 'bg-gray-100 text-gray-800';
-  }
-
   const statusVariant = (s: string) => {
     if (s === 'available') return 'default' as const;
     if (s === 'limited') return 'secondary' as const;
@@ -153,7 +135,7 @@ export function MenuTab({ l }: { l: AdminLang }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-3">
-        <h2 className="text-lg font-semibold shrink-0">{tr('menu_items')} ({items.length})</h2>
+        <h2 className="text-lg font-semibold shrink-0">{tr('ramadan_items')} ({items.length})</h2>
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input placeholder={tr('search_items')} value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
@@ -166,7 +148,6 @@ export function MenuTab({ l }: { l: AdminLang }) {
           <TableRow>
             <TableHead className="w-14">{tr('image')}</TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => handleSort('name')}>{tr('name')}<SortIcon column="name" /></TableHead>
-            <TableHead className="cursor-pointer select-none" onClick={() => handleSort('category')}>{tr('category')}<SortIcon column="category" /></TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => handleSort('price')}>{tr('price')}<SortIcon column="price" /></TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => handleSort('status')}>{tr('status')}<SortIcon column="status" /></TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => handleSort('visible')}>{tr('visible')}<SortIcon column="visible" /></TableHead>
@@ -182,7 +163,6 @@ export function MenuTab({ l }: { l: AdminLang }) {
                   {item.image ? <img src={item.image} alt="" className="size-10 rounded object-cover" /> : <div className="size-10 rounded bg-muted" />}
                 </TableCell>
                 <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell><span className={`px-2 py-0.5 rounded-md text-xs font-medium ${categoryColor(item.category)}`}>{item.category}</span></TableCell>
                 <TableCell>{item.price} {tr('egp')}</TableCell>
                 <TableCell><Badge variant={statusVariant(item.status)}>{tr(item.status || 'available')}</Badge></TableCell>
                 <TableCell><Switch checked={isVisible} onCheckedChange={() => handleToggleVisibility(item)} className="data-[state=unchecked]:bg-gray-300 data-[state=unchecked]:border-gray-400" /></TableCell>
@@ -196,7 +176,7 @@ export function MenuTab({ l }: { l: AdminLang }) {
             );
           })}
           {getSortedItems().length === 0 && (
-            <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{tr('no_items')}</TableCell></TableRow>
+            <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{tr('no_items')}</TableCell></TableRow>
           )}
         </TableBody>
       </Table>

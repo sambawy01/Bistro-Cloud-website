@@ -6,7 +6,8 @@ import { useAdminLang } from './useAdminLang';
 import { AdminLogin } from './AdminLogin';
 import { MenuTab } from './MenuTab';
 import { PantryTab } from './PantryTab';
-import { LogOut, Loader2, UtensilsCrossed, Package, Languages } from 'lucide-react';
+import { RamadanTab } from './RamadanTab';
+import { LogOut, Loader2, UtensilsCrossed, Package, Moon, Languages } from 'lucide-react';
 
 export function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -78,12 +79,16 @@ export function AdminPage() {
             <TabsTrigger value="menu">
               <UtensilsCrossed className="size-4 mr-1.5" /> {tr('menu')}
             </TabsTrigger>
+            <TabsTrigger value="ramadan">
+              <Moon className="size-4 mr-1.5" /> {tr('ramadan')}
+            </TabsTrigger>
             <TabsTrigger value="pantry">
               <Package className="size-4 mr-1.5" /> {tr('pantry')}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="menu"><MenuTab l={l} /></TabsContent>
+          <TabsContent value="ramadan"><RamadanTab l={l} /></TabsContent>
           <TabsContent value="pantry"><PantryTab l={l} /></TabsContent>
         </Tabs>
       </main>

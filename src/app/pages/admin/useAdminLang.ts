@@ -17,6 +17,8 @@ const t: Record<string, Record<Lang, string>> = {
   // Tabs
   'menu': { en: 'Menu', ar: 'القائمة' },
   'pantry': { en: 'Pantry', ar: 'المخزن' },
+  'ramadan': { en: 'Ramadan', ar: 'رمضان' },
+  'ramadan_items': { en: 'Ramadan Iftar Combos', ar: 'وجبات إفطار رمضان' },
 
   // Menu/Products table
   'menu_items': { en: 'Menu Items', ar: 'أصناف القائمة' },
