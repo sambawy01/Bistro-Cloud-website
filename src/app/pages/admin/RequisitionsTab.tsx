@@ -6,17 +6,16 @@ import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Input } from '@/app/components/ui/input';
 import {
-  StockItem, Recipe, Requisition,
-  getInventory, getRecipes, getRequisitions,
-  restockItem, getRecipeFor,
-  submitRecipeRequisition, submitManualRequisition,
+  StockItem, Requisition,
+  getInventory, getRequisitions,
+  restockItem,
+  submitManualRequisition,
   approveRequisition, rejectRequisition,
 } from '@/services/inventoryService';
 import { Role } from '@/services/adminService';
-import { RecipeManagerDialog } from './RecipeManagerDialog';
 import { AdminLang } from './useAdminLang';
 import { toast } from 'sonner';
-import { Loader2, BookOpen, Minus, PackagePlus, ClipboardList, Check, X, Plus, Trash2, Send } from 'lucide-react';
+import { Loader2, Minus, PackagePlus, ClipboardList, Check, X, Plus, Trash2, Send } from 'lucide-react';
 
 const DEDUCTION_REASONS = ['Kitchen Use', 'Waste', 'Staff Meal', 'Other'];
 
@@ -35,16 +34,6 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [recipeDialogOpen, setRecipeDialogOpen] = useState(false);
-
-  // Recipe deduction state
-  const [selectedMenuItem, setSelectedMenuItem] = useState('');
-  const [recipeIngredients, setRecipeIngredients] = useState<Recipe[]>([]);
-  const [portions, setPortions] = useState('1');
-  const [recipePerformedBy, setRecipePerformedBy] = useState('');
-  const [loadingRecipe, setLoadingRecipe] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
   // Cart-based manual deduction
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartPerformedBy, setCartPerformedBy] = useState('');
@@ -64,22 +53,18 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
   // Approving state
   const [approvingRow, setApprovingRow] = useState<number | null>(null);
 
-  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
-
   const isChef = role === 'chef';
   const canApprove = role === 'admin' || role === 'accounting';
   const canRestock = role === 'admin' || role === 'accounting';
   const canSubmitReqs = role === 'admin' || role === 'chef';
-  const canManageRecipes = role === 'admin' || role === 'chef';
 
   const fetchAll = useCallback(async () => {
     try {
-      const [inv, reqs, recs] = await Promise.all([
-        getInventory(), getRequisitions(), getRecipes(),
+      const [inv, reqs] = await Promise.all([
+        getInventory(), getRequisitions(),
       ]);
       setStockItems(inv);
       setRequisitions(reqs);
-      setAllRecipes(recs);
     } catch (err) {
       toast.error(tr('inv_failed_load'));
       console.error(err);
@@ -90,39 +75,7 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const menuItems = [...new Set(allRecipes.map(r => r.menu_item))].sort();
   const pendingReqs = requisitions.filter(r => r.status === 'Pending');
-
-  // ── Recipe deduction ──
-  async function handleMenuItemChange(menuItem: string) {
-    setSelectedMenuItem(menuItem);
-    if (!menuItem) { setRecipeIngredients([]); return; }
-    setLoadingRecipe(true);
-    try {
-      const ingredients = await getRecipeFor(menuItem);
-      setRecipeIngredients(ingredients);
-    } catch (err) {
-      console.error(err);
-      setRecipeIngredients([]);
-    } finally {
-      setLoadingRecipe(false);
-    }
-  }
-
-  async function handleRecipeSubmit() {
-    if (!selectedMenuItem || Number(portions) < 1) return;
-    setSubmitting(true);
-    try {
-      await submitRecipeRequisition(selectedMenuItem, Number(portions), recipePerformedBy.trim() || 'Chef');
-      toast.success(tr('inv_req_submitted'));
-      setSelectedMenuItem(''); setPortions('1'); setRecipeIngredients([]); setRecipePerformedBy('');
-      await fetchAll();
-    } catch (err: any) {
-      toast.error(err.message || tr('inv_failed_submit'));
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   // ── Cart functions ──
   function handleAddToCart() {
@@ -298,57 +251,7 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
       )}
 
       {/* Action cards row */}
-      <div className={`grid gap-4 ${canRestock ? 'md:grid-cols-2' : ''}`}>
-        {/* Recipe Deduction Card — chef & admin */}
-        {canSubmitReqs && (
-          <div className="rounded-lg border bg-white p-4 space-y-3">
-            <div className="flex items-center gap-2 font-semibold text-sm">
-              <BookOpen className="size-4 text-blue-600" /> {tr('inv_recipe_deduction')}
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_menu_item')}</label>
-              <select
-                value={selectedMenuItem}
-                onChange={e => handleMenuItemChange(e.target.value)}
-                className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-              >
-                <option value="">{tr('inv_select_menu_item')}</option>
-                {menuItems.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            {loadingRecipe && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-            {recipeIngredients.length > 0 && (
-              <div className="text-xs space-y-1 bg-muted/50 rounded p-2">
-                {recipeIngredients.map((ing, i) => (
-                  <div key={i} className="flex justify-between">
-                    <span>{ing.ingredient}</span>
-                    <span className="text-muted-foreground">{Number(ing.qty_needed) * Number(portions)} {ing.unit}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_portions')}</label>
-                <Input type="number" value={portions} onChange={e => setPortions(e.target.value)} min="1" className="h-8" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_performed_by')}</label>
-                <Input value={recipePerformedBy} onChange={e => setRecipePerformedBy(e.target.value)} placeholder={isChef ? 'Chef' : 'Admin'} className="h-8" />
-              </div>
-            </div>
-            <Button
-              onClick={handleRecipeSubmit}
-              disabled={submitting || !selectedMenuItem || Number(portions) < 1}
-              className="w-full"
-              size="sm"
-            >
-              {submitting ? <Loader2 className="size-4 animate-spin mr-1" /> : <Send className="size-4 mr-1" />}
-              {isChef ? tr('inv_submit_requisition') : tr('inv_deduct_stock')}
-            </Button>
-          </div>
-        )}
-
+      <div className={`grid gap-4`}>
         {/* Restock Card — accounting & admin only */}
         {canRestock && (
           <div className="rounded-lg border bg-white p-4 space-y-3">
@@ -491,14 +394,9 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
         </div>
       )}
 
-      {/* Manage Recipes + Log header */}
+      {/* Log header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{tr('inv_requisition_log')} ({requisitions.length})</h2>
-        {canManageRecipes && (
-          <Button variant="outline" size="sm" onClick={() => setRecipeDialogOpen(true)}>
-            <ClipboardList className="size-4 mr-1" /> {tr('inv_manage_recipes')}
-          </Button>
-        )}
       </div>
 
       {/* Requisitions Log Table */}
@@ -538,9 +436,6 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
         </TableBody>
       </Table>
 
-      {canManageRecipes && (
-        <RecipeManagerDialog open={recipeDialogOpen} onOpenChange={setRecipeDialogOpen} l={l} />
-      )}
     </div>
   );
 }
