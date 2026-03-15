@@ -164,6 +164,7 @@ export function MenuTab({ l }: { l: AdminLang }) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-10">#</TableHead>
             <TableHead className="w-14">{tr('image')}</TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => handleSort('name')}>{tr('name')}<SortIcon column="name" /></TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => handleSort('category')}>{tr('category')}<SortIcon column="category" /></TableHead>
@@ -174,10 +175,11 @@ export function MenuTab({ l }: { l: AdminLang }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {getSortedItems().map(item => {
+          {getSortedItems().map((item, idx) => {
             const isVisible = item.status === 'available' || item.status === 'limited';
             return (
               <TableRow key={item._rowIndex} className={!isVisible ? 'opacity-50' : ''}>
+                <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                 <TableCell>
                   {item.image ? <img src={item.image} alt="" className="size-10 rounded object-cover" /> : <div className="size-10 rounded bg-muted" />}
                 </TableCell>
@@ -196,7 +198,7 @@ export function MenuTab({ l }: { l: AdminLang }) {
             );
           })}
           {getSortedItems().length === 0 && (
-            <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{tr('no_items')}</TableCell></TableRow>
+            <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">{tr('no_items')}</TableCell></TableRow>
           )}
         </TableBody>
       </Table>
