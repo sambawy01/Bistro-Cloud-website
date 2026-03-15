@@ -26,10 +26,26 @@ function getStockStatus(item: StockItem): 'ok' | 'low' | 'out' {
 }
 
 const categoryColor: Record<string, string> = {
+  'لحوم': 'bg-red-100 text-red-800',
+  'اسماك': 'bg-sky-100 text-sky-800',
+  'بقاله': 'bg-amber-100 text-amber-800',
+  'عطاره وتوابل': 'bg-purple-100 text-purple-800',
+  'مشروبات': 'bg-teal-100 text-teal-800',
+  'جينرال': 'bg-gray-100 text-gray-700',
+  // English fallbacks
   'Raw Ingredient': 'bg-blue-100 text-blue-800',
   'Packaging': 'bg-purple-100 text-purple-800',
   'Supplies': 'bg-amber-100 text-amber-800',
   'Finished Good': 'bg-green-100 text-green-800',
+};
+
+const categoryRowColor: Record<string, string> = {
+  'لحوم': 'bg-red-50/40',
+  'اسماك': 'bg-sky-50/40',
+  'بقاله': 'bg-amber-50/40',
+  'عطاره وتوابل': 'bg-purple-50/40',
+  'مشروبات': 'bg-teal-50/40',
+  'جينرال': 'bg-gray-50/40',
 };
 
 export function InventoryTab({ l, role }: { l: AdminLang; role: Role }) {
@@ -178,7 +194,7 @@ export function InventoryTab({ l, role }: { l: AdminLang; role: Role }) {
         </TableHeader>
         <TableBody>
           {getSortedItems().map((item, idx) => (
-            <TableRow key={item._rowIndex} className={getStockStatus(item) === 'out' ? 'bg-red-50' : getStockStatus(item) === 'low' ? 'bg-amber-50/50' : ''}>
+            <TableRow key={item._rowIndex} className={getStockStatus(item) === 'out' ? 'bg-red-50' : getStockStatus(item) === 'low' ? 'bg-amber-50/50' : categoryRowColor[item.category] || ''}>
               <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
               <TableCell className="font-medium">{item.name}</TableCell>
               <TableCell>
