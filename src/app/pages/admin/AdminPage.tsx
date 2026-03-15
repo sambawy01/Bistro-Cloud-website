@@ -21,7 +21,13 @@ export function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
   const [role, setRole] = useState<Role | null>(null);
-  const [section, setSection] = useState<'website' | 'inventory'>('website');
+  const [section, setSectionState] = useState<'website' | 'inventory'>(
+    () => (sessionStorage.getItem('bc-admin-section') as 'website' | 'inventory') || 'website'
+  );
+  function setSection(s: 'website' | 'inventory') {
+    setSectionState(s);
+    sessionStorage.setItem('bc-admin-section', s);
+  }
   const l = useAdminLang();
   const { tr, lang, setLang, dir } = l;
 
@@ -35,9 +41,11 @@ export function AdminPage() {
       if (result.valid && result.role) {
         setAuthed(true);
         setRole(result.role);
-        // Default section based on role
-        if (result.role === 'accounting') setSection('inventory');
-        else setSection('website');
+        // Only set default section if none saved
+        if (!sessionStorage.getItem('bc-admin-section')) {
+          if (result.role === 'accounting') setSection('inventory');
+          else setSection('website');
+        }
       } else {
         clearStoredPassword();
         clearStoredRole();
@@ -56,6 +64,7 @@ export function AdminPage() {
   function handleLogout() {
     clearStoredPassword();
     clearStoredRole();
+    sessionStorage.removeItem('bc-admin-section');
     setAuthed(false);
     setRole(null);
   }
