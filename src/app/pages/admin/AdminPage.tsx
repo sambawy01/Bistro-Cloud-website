@@ -93,7 +93,7 @@ export function AdminPage() {
   }
 
   // Role-based visibility
-  const canSeeWebsite = role === 'admin' || role === 'chef';
+  const canSeeWebsite = role === 'admin' || role === 'chef' || role === 'accounting';
   const canSeeInventory = role === 'admin' || role === 'accounting' || role === 'chef';
 
   // Determine available sections for this role
