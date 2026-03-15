@@ -817,15 +817,26 @@ function requisitionApprove(rowIndex) {
     });
     if (rowIndex < 2 || rowIndex > reqSheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
 
-    var statusCol = reqHeaders.indexOf('status');
-    var itemNameCol = reqHeaders.indexOf('item_name');
-    var qtyCol = reqHeaders.indexOf('quantity');
-    var dirCol = reqHeaders.indexOf('direction');
-    if (statusCol < 0 || itemNameCol < 0 || qtyCol < 0) throw new Error('Required columns not found in Requisitions tab');
+    var statusCol = -1, itemNameCol = -1, qtyCol = -1, dirCol = -1;
+    for (var i = 0; i < reqHeaders.length; i++) {
+      var h = reqHeaders[i];
+      if (h === 'status') statusCol = i;
+      else if (h === 'item_name' || h === 'item name') itemNameCol = i;
+      else if (h === 'quantity' || h === 'qty') qtyCol = i;
+      else if (h === 'direction' || h === 'dir') dirCol = i;
+    }
+    if (itemNameCol < 0 || qtyCol < 0) throw new Error('Required columns not found. Headers: ' + JSON.stringify(reqHeaders));
+    // If no status column exists, create it
+    if (statusCol < 0) {
+      statusCol = reqSheet.getLastColumn();
+      reqSheet.getRange(1, statusCol + 1).setValue('status');
+    }
 
-    // Check it's still pending
-    var currentStatus = String(reqSheet.getRange(rowIndex, statusCol + 1).getValue()).trim();
-    if (currentStatus !== 'Pending') throw new Error('Requisition is not Pending (status: ' + currentStatus + ')');
+    // Check it's still pending or empty (not already approved)
+    if (statusCol >= 0) {
+      var currentStatus = String(reqSheet.getRange(rowIndex, statusCol + 1).getValue()).trim();
+      if (currentStatus === 'Approved') throw new Error('Already approved');
+    }
 
     var itemName = String(reqSheet.getRange(rowIndex, itemNameCol + 1).getValue());
     var quantity = Number(reqSheet.getRange(rowIndex, qtyCol + 1).getValue()) || 0;
@@ -854,13 +865,12 @@ function requisitionApprove(rowIndex) {
         }
       }
       if (!found) {
-        // Still approve but note the item wasn't found
-        reqSheet.getRange(rowIndex, statusCol + 1).setValue('Approved');
+        if (statusCol >= 0) reqSheet.getRange(rowIndex, statusCol + 1).setValue('Approved');
         return { success: true, warning: 'Stock item "' + itemName + '" not found — approved without deduction' };
       }
     }
 
-    reqSheet.getRange(rowIndex, statusCol + 1).setValue('Approved');
+    if (statusCol >= 0) reqSheet.getRange(rowIndex, statusCol + 1).setValue('Approved');
     return { success: true };
   } finally {
     lock.releaseLock();
@@ -870,6 +880,15 @@ function requisitionApprove(rowIndex) {
 /**
  * Reject a pending requisition: set status to Rejected, no stock change.
  */
+function reqFindStatusCol(sheet, headers) {
+  var col = headers.indexOf('status');
+  if (col < 0) {
+    col = sheet.getLastColumn();
+    sheet.getRange(1, col + 1).setValue('status');
+  }
+  return col;
+}
+
 function requisitionReject(rowIndex) {
   var reqSheet = invGetSheet('Requisitions');
   var reqHeaders = reqSheet.getRange(1, 1, 1, reqSheet.getLastColumn()).getValues()[0].map(function(h) {
@@ -877,9 +896,7 @@ function requisitionReject(rowIndex) {
   });
   if (rowIndex < 2 || rowIndex > reqSheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
 
-  var statusCol = reqHeaders.indexOf('status');
-  if (statusCol < 0) throw new Error('Status column not found');
-
+  var statusCol = reqFindStatusCol(reqSheet, reqHeaders);
   reqSheet.getRange(rowIndex, statusCol + 1).setValue('Rejected');
   return { success: true };
 }
@@ -891,9 +908,7 @@ function requisitionOutOfStock(rowIndex) {
   });
   if (rowIndex < 2 || rowIndex > reqSheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
 
-  var statusCol = reqHeaders.indexOf('status');
-  if (statusCol < 0) throw new Error('Status column not found');
-
+  var statusCol = reqFindStatusCol(reqSheet, reqHeaders);
   reqSheet.getRange(rowIndex, statusCol + 1).setValue('Out of Stock');
   return { success: true };
 }

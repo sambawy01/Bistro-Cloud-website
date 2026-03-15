@@ -379,7 +379,8 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
                     value={req.status || 'Pending'}
                     onChange={async (e) => {
                       const newStatus = e.target.value;
-                      if (newStatus === req.status) return;
+                      const currentStatus = req.status || 'Pending';
+                      if (newStatus === currentStatus) return;
                       setApprovingRow(req._rowIndex);
                       try {
                         if (newStatus === 'Approved') {
