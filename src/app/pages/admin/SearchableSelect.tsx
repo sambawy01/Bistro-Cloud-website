@@ -78,16 +78,16 @@ export function SearchableSelect({ options, value, onChange, placeholder = '', c
             />
           </div>
           {/* Options list */}
-          <div className="max-h-48 overflow-y-auto">
+          <div className="max-h-60 overflow-y-auto">
             {filtered.length === 0 && (
-              <div className="px-3 py-2 text-sm text-muted-foreground text-center">—</div>
+              <div className="px-3 py-3 text-sm text-muted-foreground text-center">—</div>
             )}
             {filtered.map(o => (
               <button
                 key={o.value}
                 type="button"
                 onClick={() => handleSelect(o.value)}
-                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors ${
+                className={`w-full text-left px-3 py-3 sm:py-1.5 text-sm hover:bg-muted transition-colors ${
                   o.value === value ? 'bg-muted font-medium' : ''
                 }`}
               >

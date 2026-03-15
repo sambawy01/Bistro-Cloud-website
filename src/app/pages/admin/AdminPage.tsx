@@ -117,10 +117,10 @@ export function AdminPage() {
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}>
-              <Languages className="size-4 mr-1" /> {lang === 'en' ? 'عربي' : 'English'}
+              <Languages className="size-4 sm:mr-1" /> <span className="hidden sm:inline">{lang === 'en' ? 'عربي' : 'English'}</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="size-4 mr-1" /> {tr('logout')}
+              <LogOut className="size-4 sm:mr-1" /> <span className="hidden sm:inline">{tr('logout')}</span>
             </Button>
           </div>
         </div>

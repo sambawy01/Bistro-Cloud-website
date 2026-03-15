@@ -173,6 +173,7 @@ const t: Record<string, Record<Lang, string>> = {
   'inv_items_label': { en: 'items', ar: 'أصناف' },
   'inv_submit_all': { en: 'Submit All', ar: 'إرسال الكل' },
   'inv_deduct_all': { en: 'Deduct All', ar: 'خصم الكل' },
+  'inv_add_to_cart': { en: 'Add to Cart', ar: 'أضف للسلة' },
 };
 
 const STORAGE_KEY = 'bc-admin-lang';

@@ -31,44 +31,32 @@ export function HomePage() {
   return (
     <div className="w-full bg-[#F9F5F0]">
       {/* Hero Section */}
-      <section className="relative h-[90vh] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="https://i.ibb.co/hRJKBWTn/image001.jpg"
-            alt="Delicious food spread"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+      <section className="relative bg-black flex items-center justify-center overflow-hidden">
+        <div className="w-full">
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            poster="https://i.ibb.co/hRJKBWTn/image001.jpg"
+            className="w-full h-auto block"
+          >
+            <source src="/assets/hero-video.mp4" type="video/mp4" />
+          </video>
         </div>
         
-        <div className="relative z-10 container mx-auto px-4 text-center text-white">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <span className="inline-block py-2 px-4 border border-white/30 rounded-full bg-white/10 backdrop-blur-md text-sm font-bold tracking-widest uppercase mb-6 text-[#F9F5F0]">
-              El Gouna's Open Kitchen
-            </span>
-            <h1 className="font-montserrat font-bold text-5xl md:text-7xl lg:text-8xl leading-tight mb-8 drop-shadow-lg">
-              Fresh. Natural.<br/>Delivered Daily.
-            </h1>
-            <p className="font-inter text-lg md:text-2xl text-gray-100 max-w-2xl mx-auto mb-10 leading-relaxed font-light">
-              100% natural ingredients, made fresh every day. Order now and taste the difference quality makes.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/menu">
-                <Button size="lg" className="w-full sm:w-auto text-lg h-16 px-10 rounded-full bg-[#D94E28] hover:bg-[#c0392b] border-none shadow-[0_0_20px_rgba(217,78,40,0.4)] transition-all hover:scale-105">
-                  See Today's Menu
-                </Button>
-              </Link>
-              <Link to="/catering">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg h-16 px-10 rounded-full border-2 border-white text-white hover:bg-white hover:text-[#2C3E50] bg-transparent transition-all">
-                  Request Catering Quote
-                </Button>
-              </Link>
-            </div>
-          </motion.div>
+        {/* Buttons at bottom of hero */}
+        <div className="absolute bottom-10 left-0 right-0 z-10 flex flex-col sm:flex-row gap-4 justify-center px-4">
+          <Link to="/menu">
+            <Button size="lg" className="w-full sm:w-auto text-lg h-16 px-10 rounded-full bg-[#D94E28] hover:bg-[#c0392b] border-none shadow-[0_0_20px_rgba(217,78,40,0.4)] transition-all hover:scale-105">
+              See Today's Menu
+            </Button>
+          </Link>
+          <Link to="/catering">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg h-16 px-10 rounded-full border-2 border-white text-white hover:bg-white hover:text-[#2C3E50] bg-transparent transition-all">
+              Request Catering Quote
+            </Button>
+          </Link>
         </div>
 
         {/* Scroll Indicator */}

@@ -12,10 +12,14 @@
  */
 
 // ============ CONFIGURATION ============
-const SPREADSHEET_ID = '1bEt7BVbWfQzlt8t1qh92FxX0e7M-R-_EPvMdU8wJv5M';
+const OLD_SPREADSHEET_ID = '1bEt7BVbWfQzlt8t1qh92FxX0e7M-R-_EPvMdU8wJv5M'; // Legacy — kept for reference
 const PEOPLE_SHEET = 'People';
 const OPPORTUNITIES_SHEET = 'Opportunities';
 const NOTIFICATION_EMAIL = 'bistrocloud3@gmail.com';
+
+// ── New CRM Sheet ──
+// Create a new Google Sheet, paste its ID here, then run setupCRM() once from the script editor.
+var CRM_SHEET_ID = '1xCKNznRPmxr4II3XW7--Oqeu6aGHgKqhc08eJxabpzw';
 // Role-based passwords
 function getRole(pw) {
   if (pw === 'Bistro001') return 'admin';
@@ -162,6 +166,20 @@ function doGet(e) {
         return jsonpResponse(callback, requisitionReject(parseInt(params.rowIndex)));
       case 'outOfStockRequisition':
         return jsonpResponse(callback, requisitionOutOfStock(parseInt(params.rowIndex)));
+      // ── CRM Read endpoints ──
+      case 'getCatering':
+        return jsonpResponse(callback, { success: true, items: crmReadRows('Catering') });
+      case 'getCRMOrders':
+        return jsonpResponse(callback, { success: true, items: crmReadRows('Orders') });
+      case 'getContacts':
+        return jsonpResponse(callback, { success: true, items: crmReadRows('Contacts') });
+      case 'getPipeline':
+        return jsonpResponse(callback, { success: true, items: crmReadRows('Pipeline') });
+      // ── CRM Edit/Delete ──
+      case 'editCRMRow':
+        return jsonpResponse(callback, crmEditRow(params.tab, parseInt(params.rowIndex), params.item));
+      case 'deleteCRMRow':
+        return jsonpResponse(callback, crmDeleteRow(params.tab, parseInt(params.rowIndex)));
       default:
         return jsonpResponse(callback, { success: false, error: 'Unknown action: ' + action });
     }
@@ -233,7 +251,7 @@ function adminGetMenu() {
 }
 
 function adminGetOrders() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(OLD_SPREADSHEET_ID);
   var sheet = ss.getSheetByName(PEOPLE_SHEET);
   if (!sheet) return { success: true, orders: [] };
 
@@ -322,7 +340,7 @@ function adminToggleVisibility(rowIndex, newStatus) {
 }
 
 function adminArchiveOrder(rowIndex) {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(OLD_SPREADSHEET_ID);
   var sourceSheet = ss.getSheetByName(PEOPLE_SHEET);
   if (!sourceSheet) throw new Error('People sheet not found');
 
@@ -421,116 +439,246 @@ function adminTogglePantryVisibility(rowIndex, newStatus) {
   return { success: true };
 }
 
-// ============ CRM DATA STORAGE ============
+// ============ CRM DATA STORAGE (v2 — header-based, one tab per form type) ============
 
-function addCateringInquiry(data, timestamp) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(PEOPLE_SHEET);
-  if (!sheet) { Logger.log('People sheet not found'); return; }
+/**
+ * CRM Schema — run setupCRM() once from the script editor to create all tabs.
+ * Each tab has explicit headers. All writes use header-based column lookup
+ * so data NEVER shifts even if columns are reordered.
+ */
+var CRM_TABS = {
+  Catering: ['id', 'timestamp', 'name', 'company', 'email', 'phone', 'event_type', 'guest_count', 'event_date', 'location', 'menu_preferences', 'status', 'notes'],
+  Orders:   ['id', 'timestamp', 'name', 'phone', 'delivery_area', 'address', 'order_total', 'order_summary', 'status', 'notes'],
+  Contacts: ['id', 'timestamp', 'name', 'email', 'phone', 'message', 'status'],
+  Pipeline: ['id', 'timestamp', 'type', 'deal_name', 'contact_name', 'company', 'email', 'stage', 'value', 'event_date', 'guest_count', 'location', 'status', 'notes'],
+};
 
-  const notes = [
-    'Event: ' + (data.eventType || ''),
-    'Guests: ' + (data.guestCount || ''),
-    'Date: ' + (data.eventDate || ''),
-    'Location: ' + (data.location || ''),
-    'Menu: ' + (data.menuPreferences || ''),
-    'Submitted: ' + timestamp
-  ].join(' | ');
+/**
+ * Run this ONCE from the Apps Script editor to create all CRM tabs with headers.
+ * Menu: Run → setupCRM
+ */
+function setupCRM() {
+  if (!CRM_SHEET_ID) throw new Error('Set CRM_SHEET_ID first — create a new Google Sheet and paste its ID.');
+  var ss = SpreadsheetApp.openById(CRM_SHEET_ID);
 
-  sheet.appendRow([
-    'inquiry',
-    data.name || '',
-    data.company || '',
-    data.phone || '',
-    data.email || '',
-    'Catering Inquiry',
-    'B2B Catering Client',
-    data.phone || '',
-    data.location || '',
-    '',
-    notes
-  ]);
-
-  var oppSheet = ss.getSheetByName(OPPORTUNITIES_SHEET);
-  if (!oppSheet) {
-    Logger.log('Opportunities sheet not found!');
-    return;
+  for (var tabName in CRM_TABS) {
+    var headers = CRM_TABS[tabName];
+    var sheet = ss.getSheetByName(tabName);
+    if (!sheet) {
+      sheet = ss.insertSheet(tabName);
+      Logger.log('Created tab: ' + tabName);
+    }
+    // Write headers to row 1
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    // Bold + freeze header row
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    // Auto-resize columns
+    for (var i = 1; i <= headers.length; i++) {
+      sheet.setColumnWidth(i, 140);
+    }
   }
 
-  var dealName = (data.eventType || 'Catering') + ' - ' + (data.name || 'Unknown');
+  // Delete the default "Sheet1" if it's empty and other tabs exist
+  var defaultSheet = ss.getSheetByName('Sheet1');
+  if (defaultSheet && ss.getSheets().length > 1) {
+    var lastRow = defaultSheet.getLastRow();
+    if (lastRow <= 1) {
+      try { ss.deleteSheet(defaultSheet); } catch (_) {}
+    }
+  }
 
-  oppSheet.appendRow([
-    'catering',
-    dealName,
-    data.company || '',
-    'Inquiry',
-    '',
-    data.eventDate || '',
-    data.guestCount || '',
-    'Open',
-    data.location || '',
-    data.name || '',
-    data.email || '',
-    notes
-  ]);
+  Logger.log('CRM setup complete! Tabs: ' + Object.keys(CRM_TABS).join(', '));
+}
+
+// ── CRM helper: get a tab from the CRM sheet (auto-creates if missing) ──
+function crmGetSheet(tabName) {
+  if (!CRM_SHEET_ID) throw new Error('CRM_SHEET_ID not set');
+  var ss = SpreadsheetApp.openById(CRM_SHEET_ID);
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet) {
+    // Auto-create the tab with headers
+    var headers = CRM_TABS[tabName];
+    if (!headers) throw new Error('Unknown CRM tab: ' + tabName);
+    sheet = ss.insertSheet(tabName);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    for (var i = 1; i <= headers.length; i++) {
+      sheet.setColumnWidth(i, 140);
+    }
+    // Delete default Sheet1 if empty
+    var defaultSheet = ss.getSheetByName('Sheet1');
+    if (defaultSheet && ss.getSheets().length > 1) {
+      try { if (defaultSheet.getLastRow() <= 1) ss.deleteSheet(defaultSheet); } catch (_) {}
+    }
+    Logger.log('Auto-created CRM tab: ' + tabName);
+  }
+  return sheet;
+}
+
+// ── CRM helper: header-based append row ──
+function crmAppendRow(tabName, data) {
+  var sheet = crmGetSheet(tabName);
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0) throw new Error('Tab "' + tabName + '" has no headers — run setupCRM()');
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var newRow = headers.map(function(h) {
+    return data[h] !== undefined ? data[h] : '';
+  });
+  sheet.appendRow(newRow);
+}
+
+// ── CRM helper: read all rows from a tab ──
+function crmReadRows(tabName) {
+  var sheet = crmGetSheet(tabName);
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) return [];
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var items = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (row.every(function(c) { return String(c).trim() === ''; })) continue;
+    var item = { _rowIndex: i + 2 };
+    for (var j = 0; j < headers.length; j++) {
+      var val = row[j];
+      var h = headers[j];
+      if (h === 'id' || h === 'order_total' || h === 'guest_count' || h === 'value') {
+        item[h] = val === '' ? '' : (isNaN(Number(val)) ? String(val) : Number(val));
+      } else {
+        item[h] = val !== undefined ? String(val) : '';
+      }
+    }
+    items.push(item);
+  }
+  return items;
+}
+
+// ── CRM Edit / Delete ──
+
+function crmEditRow(tabName, rowIndex, itemStr) {
+  var allowed = ['Catering', 'Orders', 'Contacts', 'Pipeline'];
+  if (allowed.indexOf(tabName) < 0) throw new Error('Invalid CRM tab: ' + tabName);
+  var sheet = crmGetSheet(tabName);
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var item = JSON.parse(itemStr);
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  for (var j = 0; j < headers.length; j++) {
+    var h = headers[j];
+    if (h === 'id' || h === 'timestamp') continue; // never overwrite id or timestamp
+    if (item.hasOwnProperty(h)) sheet.getRange(rowIndex, j + 1).setValue(item[h]);
+  }
+  return { success: true };
+}
+
+function crmDeleteRow(tabName, rowIndex) {
+  var allowed = ['Catering', 'Orders', 'Contacts', 'Pipeline'];
+  if (allowed.indexOf(tabName) < 0) throw new Error('Invalid CRM tab: ' + tabName);
+  var sheet = crmGetSheet(tabName);
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  sheet.deleteRow(rowIndex);
+  return { success: true };
+}
+
+// ── Write functions ──
+
+function addCateringInquiry(data, timestamp) {
+  var id = Date.now();
+  var ts = timestamp || new Date().toISOString();
+
+  // Write to Catering tab
+  crmAppendRow('Catering', {
+    id: id,
+    timestamp: ts,
+    name: data.name || '',
+    company: data.company || '',
+    email: data.email || '',
+    phone: data.phone || '',
+    event_type: data.eventType || '',
+    guest_count: data.guestCount || '',
+    event_date: data.eventDate || '',
+    location: data.location || '',
+    menu_preferences: data.menuPreferences || '',
+    status: 'New',
+    notes: '',
+  });
+
+  // Write to Pipeline tab
+  var dealName = (data.eventType || 'Catering') + ' — ' + (data.name || 'Unknown');
+  crmAppendRow('Pipeline', {
+    id: id,
+    timestamp: ts,
+    type: 'catering',
+    deal_name: dealName,
+    contact_name: data.name || '',
+    company: data.company || '',
+    email: data.email || '',
+    stage: 'Inquiry',
+    value: '',
+    event_date: data.eventDate || '',
+    guest_count: data.guestCount || '',
+    location: data.location || '',
+    status: 'Open',
+    notes: '',
+  });
 }
 
 function addContactSubmission(data, timestamp) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(PEOPLE_SHEET);
-  if (!sheet) return;
-
-  sheet.appendRow([
-    'contact',
-    data.name || '',
-    '',
-    data.phone || '',
-    data.email || '',
-    'Website Contact',
-    'B2C Customer',
-    data.phone || '',
-    '',
-    '',
-    'Message: ' + (data.message || '') + ' | Submitted: ' + timestamp
-  ]);
+  crmAppendRow('Contacts', {
+    id: Date.now(),
+    timestamp: timestamp || new Date().toISOString(),
+    name: data.name || '',
+    email: data.email || '',
+    phone: data.phone || '',
+    message: data.message || '',
+    status: 'New',
+  });
 }
 
 function addOrderSubmission(data, timestamp) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(PEOPLE_SHEET);
-  if (!sheet) return;
+  var id = Date.now();
+  var ts = timestamp || new Date().toISOString();
 
-  sheet.appendRow([
-    'order',
-    data.name || '',
-    '',
-    data.phone || '',
-    '',
-    'Online Order',
-    'B2C Customer',
-    data.phone || '',
-    data.deliveryArea || '',
-    data.address || '',
-    'Order Total: ' + (data.orderTotal || '') + ' | ' + (data.orderSummary || '') + ' | Submitted: ' + timestamp
-  ]);
+  // Write to Orders tab
+  crmAppendRow('Orders', {
+    id: id,
+    timestamp: ts,
+    name: data.name || '',
+    phone: data.phone || '',
+    delivery_area: data.deliveryArea || '',
+    address: data.address || '',
+    order_total: data.orderTotal || '',
+    order_summary: data.orderSummary || '',
+    status: 'New',
+    notes: '',
+  });
 
-  var oppSheet = ss.getSheetByName(OPPORTUNITIES_SHEET);
-  if (oppSheet) {
-    oppSheet.appendRow([
-      'order',
-      'Order - ' + (data.name || 'Unknown'),
-      '',
-      'Won',
-      data.orderTotal || '',
-      new Date().toISOString().split('T')[0],
-      '1',
-      'Completed',
-      data.deliveryArea || data.address || '',
-      data.name || '',
-      '',
-      'Order: ' + (data.orderSummary || '') + ' | Submitted: ' + timestamp
-    ]);
-  }
+  // Write to Pipeline tab
+  crmAppendRow('Pipeline', {
+    id: id,
+    timestamp: ts,
+    type: 'order',
+    deal_name: 'Order — ' + (data.name || 'Unknown'),
+    contact_name: data.name || '',
+    company: '',
+    email: '',
+    stage: 'Won',
+    value: data.orderTotal || '',
+    event_date: ts.split('T')[0],
+    guest_count: '1',
+    location: data.deliveryArea || data.address || '',
+    status: 'Completed',
+    notes: data.orderSummary || '',
+  });
 }
 
 // ============ EMAIL NOTIFICATIONS ============
@@ -608,7 +756,7 @@ function sendInternalNotification(data, formType) {
       '<h2 style="color: #D94E28; margin-bottom: 5px;">' + typeLabel + '</h2>' +
       '<p style="color: #888; margin-top: 0;">From bistro-cloud.com at ' + new Date().toLocaleString('en-EG', { timeZone: 'Africa/Cairo' }) + '</p>' +
       '<table style="width: 100%; border-collapse: collapse; background: #f9f9f9; border-radius: 8px;">' + details + '</table>' +
-      '<p style="margin-top: 15px;"><a href="https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '" style="color: #D94E28;">Open CRM Sheet</a></p>' +
+      '<p style="margin-top: 15px;"><a href="https://docs.google.com/spreadsheets/d/' + (CRM_SHEET_ID || OLD_SPREADSHEET_ID) + '" style="color: #D94E28;">Open CRM Sheet</a></p>' +
     '</div>';
 
     MailApp.sendEmail({
@@ -913,10 +1061,13 @@ function requisitionOutOfStock(rowIndex) {
   return { success: true };
 }
 
-// ============ TEST FUNCTION ============
-function testWrite() {
+// ============ TEST FUNCTIONS ============
+
+/** Test the new CRM setup — run this after setupCRM() */
+function testCRM() {
+  // Test catering inquiry
   addCateringInquiry({
-    name: 'Apps Script Test',
+    name: 'Test Client',
     company: 'Test Co',
     email: 'test@test.com',
     phone: '+20123456789',
@@ -926,5 +1077,36 @@ function testWrite() {
     location: 'El Gouna Marina',
     menuPreferences: 'Mediterranean seafood'
   }, new Date().toISOString());
-  Logger.log('Test row added to People sheet');
+  Logger.log('✓ Catering inquiry added');
+
+  // Test order
+  addOrderSubmission({
+    name: 'Test Customer',
+    phone: '+20111222333',
+    deliveryArea: 'Downtown',
+    address: '123 Test St',
+    orderTotal: 450,
+    orderSummary: '2x Grilled Chicken, 1x Caesar Salad'
+  }, new Date().toISOString());
+  Logger.log('✓ Order added');
+
+  // Test contact form
+  addContactSubmission({
+    name: 'Test Person',
+    email: 'person@test.com',
+    phone: '+20999888777',
+    message: 'I have a question about your catering menu'
+  }, new Date().toISOString());
+  Logger.log('✓ Contact form added');
+
+  // Verify reads
+  var catering = crmReadRows('Catering');
+  var orders = crmReadRows('Orders');
+  var contacts = crmReadRows('Contacts');
+  var pipeline = crmReadRows('Pipeline');
+  Logger.log('Catering rows: ' + catering.length);
+  Logger.log('Orders rows: ' + orders.length);
+  Logger.log('Contacts rows: ' + contacts.length);
+  Logger.log('Pipeline rows: ' + pipeline.length);
+  Logger.log('CRM test complete!');
 }

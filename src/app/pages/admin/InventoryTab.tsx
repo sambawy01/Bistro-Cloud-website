@@ -170,58 +170,121 @@ export function InventoryTab({ l, role }: { l: AdminLang; role: Role }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4 gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
         <h2 className="text-lg font-semibold shrink-0">{tr('inv_stock_items')} ({items.length})</h2>
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input placeholder={tr('inv_search')} value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
+        <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input placeholder={tr('inv_search')} value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-10 sm:h-9 text-base sm:text-sm" />
+          </div>
+          {canEdit && <Button onClick={openAdd} size="sm" className="h-10 sm:h-9 shrink-0"><Plus className="size-4 mr-1" /> {tr('inv_add_item')}</Button>}
         </div>
-        {canEdit && <Button onClick={openAdd} size="sm" className="shrink-0"><Plus className="size-4 mr-1" /> {tr('inv_add_item')}</Button>}
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10">#</TableHead>
-            <TableHead className="cursor-pointer select-none" onClick={() => handleSort('name')}>{tr('name')}<SortIcon column="name" /></TableHead>
-            <TableHead className="cursor-pointer select-none" onClick={() => handleSort('category')}>{tr('category')}<SortIcon column="category" /></TableHead>
-            <TableHead>{tr('inv_unit')}</TableHead>
-            <TableHead className="cursor-pointer select-none" onClick={() => handleSort('qty_on_hand')}>{tr('inv_qty_on_hand')}<SortIcon column="qty_on_hand" /></TableHead>
-            <TableHead>{tr('inv_min_level')}</TableHead>
-            <TableHead className="cursor-pointer select-none" onClick={() => handleSort('status')}>{tr('status')}<SortIcon column="status" /></TableHead>
-            {canEdit && <TableHead className="text-right">{tr('actions')}</TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {getSortedItems().map((item, idx) => (
-            <TableRow key={item._rowIndex} className={getStockStatus(item) === 'out' ? 'bg-red-50' : getStockStatus(item) === 'low' ? 'bg-amber-50/50' : categoryRowColor[item.category] || ''}>
-              <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-              <TableCell className="font-medium">{item.name}</TableCell>
-              <TableCell>
-                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${categoryColor[item.category] || 'bg-gray-100 text-gray-700'}`}>
-                  {tr('inv_cat_' + item.category.toLowerCase().replace(/ /g, '_')) || item.category}
-                </span>
-              </TableCell>
-              <TableCell>{item.unit}</TableCell>
-              <TableCell>{item.qty_on_hand}</TableCell>
-              <TableCell>{item.min_level}</TableCell>
-              <TableCell><StatusBadge item={item} /></TableCell>
-              {canEdit && <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => openRestock(item)} title={tr('inv_restock')}>
-                    <PackagePlus className="size-4 text-green-600" />
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="size-4" /></Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(item)}><Trash2 className="size-4 text-destructive" /></Button>
-                </div>
-              </TableCell>}
-            </TableRow>
+      {/* Mobile card view */}
+      <div className="sm:hidden space-y-3">
+        {/* Mobile sort buttons */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {(['name', 'category', 'qty_on_hand', 'status'] as SortKey[]).map(key => (
+            <button
+              key={key}
+              onClick={() => handleSort(key)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                sortKey === key ? 'bg-[#2C3E50] text-white border-[#2C3E50]' : 'bg-white text-muted-foreground border-input'
+              }`}
+            >
+              {key === 'name' ? tr('name') : key === 'category' ? tr('category') : key === 'qty_on_hand' ? tr('inv_qty_on_hand') : tr('status')}
+              {sortKey === key && (sortDir === 'asc' ? ' ↑' : ' ↓')}
+            </button>
           ))}
-          {getSortedItems().length === 0 && (
-            <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="text-center py-8 text-muted-foreground">{tr('inv_no_items')}</TableCell></TableRow>
-          )}
-        </TableBody>
-      </Table>
+        </div>
+        {getSortedItems().length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">{tr('inv_no_items')}</div>
+        )}
+        {getSortedItems().map((item) => (
+          <div
+            key={item._rowIndex}
+            className={`rounded-lg border bg-white p-4 space-y-2 ${
+              getStockStatus(item) === 'out' ? 'border-red-300 bg-red-50/30' :
+              getStockStatus(item) === 'low' ? 'border-amber-300 bg-amber-50/30' : ''
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-base">{item.name}</span>
+              <StatusBadge item={item} />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${categoryColor[item.category] || 'bg-gray-100 text-gray-700'}`}>
+                {tr('inv_cat_' + item.category.toLowerCase().replace(/ /g, '_')) || item.category}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>{tr('inv_qty_on_hand')}: <strong>{item.qty_on_hand}</strong> {item.unit}</span>
+              <span className="text-muted-foreground">{tr('inv_min_level')}: {item.min_level}</span>
+            </div>
+            {canEdit && (
+              <div className="flex items-center gap-2 pt-1 border-t">
+                <Button variant="outline" size="sm" className="flex-1 h-10" onClick={() => openRestock(item)}>
+                  <PackagePlus className="size-4 text-green-600 mr-1" /> {tr('inv_restock')}
+                </Button>
+                <Button variant="outline" size="sm" className="h-10" onClick={() => openEdit(item)}>
+                  <Pencil className="size-4" />
+                </Button>
+                <Button variant="outline" size="sm" className="h-10" onClick={() => handleDelete(item)}>
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden sm:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">#</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('name')}>{tr('name')}<SortIcon column="name" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('category')}>{tr('category')}<SortIcon column="category" /></TableHead>
+              <TableHead>{tr('inv_unit')}</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('qty_on_hand')}>{tr('inv_qty_on_hand')}<SortIcon column="qty_on_hand" /></TableHead>
+              <TableHead>{tr('inv_min_level')}</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('status')}>{tr('status')}<SortIcon column="status" /></TableHead>
+              {canEdit && <TableHead className="text-right">{tr('actions')}</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {getSortedItems().map((item, idx) => (
+              <TableRow key={item._rowIndex} className={getStockStatus(item) === 'out' ? 'bg-red-50' : getStockStatus(item) === 'low' ? 'bg-amber-50/50' : categoryRowColor[item.category] || ''}>
+                <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell>
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${categoryColor[item.category] || 'bg-gray-100 text-gray-700'}`}>
+                    {tr('inv_cat_' + item.category.toLowerCase().replace(/ /g, '_')) || item.category}
+                  </span>
+                </TableCell>
+                <TableCell>{item.unit}</TableCell>
+                <TableCell>{item.qty_on_hand}</TableCell>
+                <TableCell>{item.min_level}</TableCell>
+                <TableCell><StatusBadge item={item} /></TableCell>
+                {canEdit && <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openRestock(item)} title={tr('inv_restock')}>
+                      <PackagePlus className="size-4 text-green-600" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="size-4" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(item)}><Trash2 className="size-4 text-destructive" /></Button>
+                  </div>
+                </TableCell>}
+              </TableRow>
+            ))}
+            {getSortedItems().length === 0 && (
+              <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="text-center py-8 text-muted-foreground">{tr('inv_no_items')}</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       <InventoryFormDialog
         key={editItem?._rowIndex ?? 'new'}
