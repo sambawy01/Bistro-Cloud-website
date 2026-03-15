@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/app/components/ui/dialog';
@@ -23,30 +23,65 @@ interface ItemFormDialogProps {
   l: AdminLang;
 }
 
-const MENU_CATEGORIES = ['Mains', 'Salads', 'Sides', 'Desserts', 'Drinks', 'Breakfast'];
-const PRODUCT_CATEGORIES = ['Tallow', 'Broth', 'Sauces', 'Spices', 'Snacks'];
+const MENU_CATEGORIES = ['Mains', 'Salads', 'Sides', 'Desserts', 'Drinks', 'Breakfast', 'Ramadan'];
+const PRODUCT_CATEGORIES = ['Pantry', 'Tallow', 'Broth', 'Sauces', 'Spices', 'Snacks'];
 const DIETARY_OPTIONS = ['Vegan', 'Vegetarian', 'GF', 'Keto', 'Carnivore', 'High Protein', 'Dairy-Free'];
 const STATUS_OPTIONS = ['available', 'limited', 'sold_out', 'hidden'];
 
+function parseDietary(raw: string): string[] {
+  if (!raw) return [];
+  // Support both comma and dot separators
+  return raw.split(/[,.]/).map(d => d.trim()).filter(Boolean);
+}
+
 export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave, l }: ItemFormDialogProps) {
   const { tr } = l;
-  const categories = sheetType === 'Menu' ? MENU_CATEGORIES : PRODUCT_CATEGORIES;
+  const baseCategories = sheetType === 'Menu' ? MENU_CATEGORIES : PRODUCT_CATEGORIES;
+  // Include the item's current category if it's not in the preset list
+  const categories = useMemo(() => {
+    if (item?.category && !baseCategories.some(c => c.toLowerCase() === item.category.toLowerCase())) {
+      return [item.category, ...baseCategories];
+    }
+    return baseCategories;
+  }, [item, baseCategories]);
+
   const isEdit = !!item;
 
-  const [name, setName] = useState(item?.name || '');
-  const [description, setDescription] = useState(item?.description || '');
-  const [price, setPrice] = useState(item?.price?.toString() || '');
-  const [category, setCategory] = useState(item?.category || categories[0]);
-  const [dietary, setDietary] = useState<string[]>(
-    item?.dietary ? item.dietary.split(',').map(d => d.trim()).filter(Boolean) : []
-  );
-  const [status, setStatus] = useState(item?.status || 'available');
-  const [hidden, setHidden] = useState(item?.hidden === 'true' || item?.hidden === 'hidden' || item?.hidden === 'yes');
-  const [imageUrl, setImageUrl] = useState(item?.image || '');
+  // Initial values for dirty checking
+  const initName = item?.name || '';
+  const initDescription = item?.description || '';
+  const initPrice = item?.price?.toString() || '';
+  const initCategory = item?.category || categories[0];
+  const initDietary = parseDietary(item?.dietary || '');
+  const initStatus = item?.status || 'available';
+  const initHidden = item?.hidden === 'true' || item?.hidden === 'hidden' || item?.hidden === 'yes';
+  const initImage = item?.image || '';
+
+  const [name, setName] = useState(initName);
+  const [description, setDescription] = useState(initDescription);
+  const [price, setPrice] = useState(initPrice);
+  const [category, setCategory] = useState(initCategory);
+  const [dietary, setDietary] = useState<string[]>(initDietary);
+  const [status, setStatus] = useState(initStatus);
+  const [hidden, setHidden] = useState(initHidden);
+  const [imageUrl, setImageUrl] = useState(initImage);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isDirty = isEdit ? (
+    name !== initName ||
+    description !== initDescription ||
+    price !== initPrice ||
+    category !== initCategory ||
+    status !== initStatus ||
+    hidden !== initHidden ||
+    imageUrl !== initImage ||
+    dietary.sort().join(',') !== [...initDietary].sort().join(',')
+  ) : true; // For new items, always allow save
+
+  const canSave = name.trim() !== '' && price.trim() !== '' && isDirty;
 
   const handleImageUpload = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) return;
@@ -80,7 +115,7 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave, l 
   }
 
   async function handleSave() {
-    if (!name.trim() || !price.trim()) return;
+    if (!canSave) return;
     setSaving(true);
     try {
       await onSave({
@@ -217,7 +252,7 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave, l 
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             {tr('cancel')}
           </Button>
-          <Button onClick={handleSave} disabled={saving || !name.trim() || !price.trim()}>
+          <Button onClick={handleSave} disabled={saving || !canSave}>
             {saving ? tr('saving') : isEdit ? tr('update') : tr('add_item')}
           </Button>
         </DialogFooter>
