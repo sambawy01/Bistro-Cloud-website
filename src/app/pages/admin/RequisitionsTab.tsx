@@ -13,6 +13,7 @@ import {
   approveRequisition, rejectRequisition,
 } from '@/services/inventoryService';
 import { Role } from '@/services/adminService';
+import { SearchableSelect } from './SearchableSelect';
 import { AdminLang } from './useAdminLang';
 import { toast } from 'sonner';
 import { Loader2, Minus, PackagePlus, ClipboardList, Check, X, Plus, Trash2, Send } from 'lucide-react';
@@ -260,14 +261,12 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_stock_item')}</label>
-              <select
+              <SearchableSelect
                 value={restockItemName}
-                onChange={e => setRestockItemName(e.target.value)}
-                className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-              >
-                <option value="">{tr('inv_select_item')}</option>
-                {stockItems.map(s => <option key={s._rowIndex} value={s.name}>{s.name} ({s.qty_on_hand} {s.unit})</option>)}
-              </select>
+                onChange={setRestockItemName}
+                placeholder={tr('inv_select_item')}
+                options={stockItems.map(s => ({ value: s.name, label: `${s.name} (${s.qty_on_hand} ${s.unit})` }))}
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -310,14 +309,12 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
           <div className="flex items-end gap-2">
             <div className="flex-1 min-w-0">
               <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_stock_item')}</label>
-              <select
+              <SearchableSelect
                 value={addItem}
-                onChange={e => setAddItem(e.target.value)}
-                className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-              >
-                <option value="">{tr('inv_select_item')}</option>
-                {stockItems.map(s => <option key={s._rowIndex} value={s.name}>{s.name} ({s.qty_on_hand} {s.unit})</option>)}
-              </select>
+                onChange={setAddItem}
+                placeholder={tr('inv_select_item')}
+                options={stockItems.map(s => ({ value: s.name, label: `${s.name} (${s.qty_on_hand} ${s.unit})` }))}
+              />
             </div>
             <div className="w-20">
               <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_quantity')}</label>
