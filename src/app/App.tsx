@@ -7,6 +7,7 @@ import { MenuPage } from './pages/Menu';
 import { ProductsPage } from './pages/Products';
 import { CateringPage } from './pages/Catering';
 import { ContactPage } from './pages/Contact';
+import { AdminPage } from './pages/admin/AdminPage';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="catering" element={<CateringPage />} />
           <Route path="contact" element={<ContactPage />} />
         </Route>
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </BrowserRouter>
   );
