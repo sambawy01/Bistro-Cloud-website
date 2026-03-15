@@ -183,7 +183,7 @@ export function PantryTab({ l }: { l: AdminLang }) {
         </TableBody>
       </Table>
 
-      <ItemFormDialog open={dialogOpen} onOpenChange={setDialogOpen} item={editItem} sheetType="Products" onSave={handleSave} l={l} />
+      <ItemFormDialog key={editItem?._rowIndex ?? 'new'} open={dialogOpen} onOpenChange={setDialogOpen} item={editItem} sheetType="Products" onSave={handleSave} l={l} />
     </div>
   );
 }
