@@ -65,6 +65,8 @@ export function AdminPage() {
     clearStoredPassword();
     clearStoredRole();
     sessionStorage.removeItem('bc-admin-section');
+    sessionStorage.removeItem('bc-admin-tab-website');
+    sessionStorage.removeItem('bc-admin-tab-inventory');
     setAuthed(false);
     setRole(null);
   }
@@ -148,7 +150,10 @@ export function AdminPage() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         {/* Website section — admin & chef */}
         {section === 'website' && canSeeWebsite && (
-          <Tabs defaultValue="menu">
+          <Tabs
+            defaultValue={sessionStorage.getItem('bc-admin-tab-website') || 'menu'}
+            onValueChange={v => sessionStorage.setItem('bc-admin-tab-website', v)}
+          >
             <TabsList className="mb-6">
               <TabsTrigger value="menu">
                 <UtensilsCrossed className="size-4 mr-1.5" /> {tr('menu')}
@@ -169,7 +174,10 @@ export function AdminPage() {
 
         {/* Inventory section — all roles, permissions handled by child components */}
         {section === 'inventory' && canSeeInventory && (
-          <Tabs defaultValue="stock">
+          <Tabs
+            defaultValue={sessionStorage.getItem('bc-admin-tab-inventory') || 'stock'}
+            onValueChange={v => sessionStorage.setItem('bc-admin-tab-inventory', v)}
+          >
             <TabsList className="mb-6">
               <TabsTrigger value="stock">
                 <BoxesIcon className="size-4 mr-1.5" /> {tr('inv_stock_items')}
