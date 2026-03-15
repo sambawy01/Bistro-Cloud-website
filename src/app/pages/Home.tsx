@@ -317,28 +317,35 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Image Split Section */}
-      <section className="py-0">
-        <div className="grid grid-cols-1 md:grid-cols-2 h-auto md:h-[700px]">
-          <div className="relative h-96 md:h-full overflow-hidden group">
-            <img 
-              src="https://images.unsplash.com/photo-1769955817432-641929f613f0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaGVmJTIwY29va2luZyUyMG9wZW4lMjBraXRjaGVuJTIwcHJvZmVzc2lvbmFsfGVufDF8fHx8MTc3MTEzMzY1NXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
-              alt="Chef cooking" 
-              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
-          </div>
-          <div className="bg-[#2C3E50] text-white p-12 md:p-24 flex flex-col justify-center">
-            <span className="text-[#D94E28] font-bold tracking-widest uppercase mb-4 text-sm">Catering Services</span>
-            <h2 className="font-montserrat font-bold text-4xl md:text-6xl mb-8 leading-tight">Elevate Your Events</h2>
-            <p className="text-gray-300 text-lg mb-10 leading-relaxed max-w-lg">
-              From corporate meetings to luxury yacht trips and intimate weddings, we bring the restaurant experience to you. Custom menus, professional service, and zero hassle.
-            </p>
-            <Link to="/catering">
-              <Button className="w-fit bg-[#D94E28] hover:bg-[#c0392b] text-white h-14 px-8 rounded-xl text-lg group">
-                Get a Quote <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
+      {/* Catering Video Section */}
+      <section className="bg-[#2C3E50] py-16 md:py-24">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center gap-12 md:gap-16 max-w-6xl mx-auto">
+            {/* Video - native 9:16 portrait */}
+            <div className="w-full md:w-auto shrink-0 flex justify-center">
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="rounded-2xl shadow-2xl w-[280px] md:w-[320px] h-auto"
+              >
+                <source src="/assets/catering-video.mp4" type="video/mp4" />
+              </video>
+            </div>
+            {/* Text content */}
+            <div className="text-white text-center md:text-left">
+              <span className="text-[#D94E28] font-bold tracking-widest uppercase mb-4 block text-sm">Catering Services</span>
+              <h2 className="font-montserrat font-bold text-4xl md:text-6xl mb-8 leading-tight">Elevate Your Events</h2>
+              <p className="text-gray-300 text-lg mb-10 leading-relaxed max-w-lg">
+                From corporate meetings to luxury yacht trips and intimate weddings, we bring the restaurant experience to you. Custom menus, professional service, and zero hassle.
+              </p>
+              <Link to="/catering">
+                <Button className="w-fit bg-[#D94E28] hover:bg-[#c0392b] text-white h-14 px-8 rounded-xl text-lg group">
+                  Get a Quote <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
