@@ -11,6 +11,7 @@ import {
 } from '@/services/inventoryService';
 import { InventoryFormDialog } from './InventoryFormDialog';
 import { RestockDialog } from './RestockDialog';
+import { Role } from '@/services/adminService';
 import { AdminLang } from './useAdminLang';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Loader2, ArrowUp, ArrowDown, Search, PackagePlus, AlertTriangle } from 'lucide-react';
@@ -31,8 +32,9 @@ const categoryColor: Record<string, string> = {
   'Finished Good': 'bg-green-100 text-green-800',
 };
 
-export function InventoryTab({ l }: { l: AdminLang }) {
+export function InventoryTab({ l, role }: { l: AdminLang; role: Role }) {
   const { tr } = l;
+  const canEdit = role === 'admin' || role === 'accounting';
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -158,7 +160,7 @@ export function InventoryTab({ l }: { l: AdminLang }) {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input placeholder={tr('inv_search')} value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
         </div>
-        <Button onClick={openAdd} size="sm" className="shrink-0"><Plus className="size-4 mr-1" /> {tr('inv_add_item')}</Button>
+        {canEdit && <Button onClick={openAdd} size="sm" className="shrink-0"><Plus className="size-4 mr-1" /> {tr('inv_add_item')}</Button>}
       </div>
 
       <Table>
@@ -171,7 +173,7 @@ export function InventoryTab({ l }: { l: AdminLang }) {
             <TableHead className="cursor-pointer select-none" onClick={() => handleSort('qty_on_hand')}>{tr('inv_qty_on_hand')}<SortIcon column="qty_on_hand" /></TableHead>
             <TableHead>{tr('inv_min_level')}</TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => handleSort('status')}>{tr('status')}<SortIcon column="status" /></TableHead>
-            <TableHead className="text-right">{tr('actions')}</TableHead>
+            {canEdit && <TableHead className="text-right">{tr('actions')}</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -188,7 +190,7 @@ export function InventoryTab({ l }: { l: AdminLang }) {
               <TableCell>{item.qty_on_hand}</TableCell>
               <TableCell>{item.min_level}</TableCell>
               <TableCell><StatusBadge item={item} /></TableCell>
-              <TableCell className="text-right">
+              {canEdit && <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">
                   <Button variant="ghost" size="sm" onClick={() => openRestock(item)} title={tr('inv_restock')}>
                     <PackagePlus className="size-4 text-green-600" />
@@ -196,11 +198,11 @@ export function InventoryTab({ l }: { l: AdminLang }) {
                   <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="size-4" /></Button>
                   <Button variant="ghost" size="sm" onClick={() => handleDelete(item)}><Trash2 className="size-4 text-destructive" /></Button>
                 </div>
-              </TableCell>
+              </TableCell>}
             </TableRow>
           ))}
           {getSortedItems().length === 0 && (
-            <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">{tr('inv_no_items')}</TableCell></TableRow>
+            <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="text-center py-8 text-muted-foreground">{tr('inv_no_items')}</TableCell></TableRow>
           )}
         </TableBody>
       </Table>

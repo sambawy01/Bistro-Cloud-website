@@ -83,8 +83,7 @@ export function AdminPage() {
 
   // Role-based visibility
   const canSeeWebsite = role === 'admin' || role === 'chef';
-  const canSeeInventory = role === 'admin' || role === 'accounting';
-  const canSeeKitchenReqs = role === 'chef';
+  const canSeeInventory = role === 'admin' || role === 'accounting' || role === 'chef';
 
   // Determine available sections for this role
   const sections: { key: 'website' | 'inventory'; label: string; icon: React.ReactNode }[] = [];
@@ -93,9 +92,6 @@ export function AdminPage() {
   }
   if (canSeeInventory) {
     sections.push({ key: 'inventory', label: tr('section_inventory'), icon: <Warehouse className="size-4" /> });
-  }
-  if (canSeeKitchenReqs) {
-    sections.push({ key: 'inventory', label: tr('section_kitchen'), icon: <ClipboardList className="size-4" /> });
   }
 
   return (
@@ -162,29 +158,21 @@ export function AdminPage() {
           </Tabs>
         )}
 
-        {/* Inventory section — admin & accounting see full, chef sees kitchen requisitions */}
-        {section === 'inventory' && (
-          <>
-            {(canSeeInventory) && (
-              <Tabs defaultValue="stock">
-                <TabsList className="mb-6">
-                  <TabsTrigger value="stock">
-                    <BoxesIcon className="size-4 mr-1.5" /> {tr('inv_stock_items')}
-                  </TabsTrigger>
-                  <TabsTrigger value="requisitions">
-                    <ClipboardList className="size-4 mr-1.5" /> {tr('requisitions')}
-                  </TabsTrigger>
-                </TabsList>
+        {/* Inventory section — all roles, permissions handled by child components */}
+        {section === 'inventory' && canSeeInventory && (
+          <Tabs defaultValue="stock">
+            <TabsList className="mb-6">
+              <TabsTrigger value="stock">
+                <BoxesIcon className="size-4 mr-1.5" /> {tr('inv_stock_items')}
+              </TabsTrigger>
+              <TabsTrigger value="requisitions">
+                <ClipboardList className="size-4 mr-1.5" /> {tr('requisitions')}
+              </TabsTrigger>
+            </TabsList>
 
-                <TabsContent value="stock"><InventoryTab l={l} /></TabsContent>
-                <TabsContent value="requisitions"><RequisitionsTab l={l} role={role!} /></TabsContent>
-              </Tabs>
-            )}
-
-            {canSeeKitchenReqs && (
-              <RequisitionsTab l={l} role={role!} />
-            )}
-          </>
+            <TabsContent value="stock"><InventoryTab l={l} role={role!} /></TabsContent>
+            <TabsContent value="requisitions"><RequisitionsTab l={l} role={role!} /></TabsContent>
+          </Tabs>
         )}
       </main>
     </div>
