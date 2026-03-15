@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
 import { Button } from '@/app/components/ui/button';
 import { getStoredPassword, clearStoredPassword, verifyPassword } from '@/services/adminService';
+import { useAdminLang } from './useAdminLang';
 import { AdminLogin } from './AdminLogin';
 import { MenuTab } from './MenuTab';
-import { ProductsTab } from './ProductsTab';
-import { OrdersTab } from './OrdersTab';
-import { LogOut, Loader2, UtensilsCrossed, Package, ShoppingCart } from 'lucide-react';
+import { PantryTab } from './PantryTab';
+import { LogOut, Loader2, UtensilsCrossed, Package, Languages } from 'lucide-react';
 
 export function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
+  const l = useAdminLang();
+  const { tr, lang, setLang, dir } = l;
 
   useEffect(() => {
     const pw = getStoredPassword();
@@ -39,20 +41,34 @@ export function AdminPage() {
   }
 
   if (!authed) {
-    return <AdminLogin onLogin={() => setAuthed(true)} />;
+    return (
+      <div dir={dir}>
+        <div className="absolute top-4 right-4">
+          <Button variant="ghost" size="sm" onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}>
+            <Languages className="size-4 mr-1" /> {lang === 'en' ? 'عربي' : 'English'}
+          </Button>
+        </div>
+        <AdminLogin onLogin={() => setAuthed(true)} l={l} />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F5F0]">
+    <div className="min-h-screen bg-[#F9F5F0]" dir={dir}>
       <header className="bg-white border-b sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-[#2C3E50]">Bistro Cloud</h1>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Admin</span>
+            <h1 className="text-lg font-bold text-[#2C3E50]">{tr('bistro_cloud')}</h1>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{tr('admin')}</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="size-4 mr-1" /> Logout
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}>
+              <Languages className="size-4 mr-1" /> {lang === 'en' ? 'عربي' : 'English'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="size-4 mr-1" /> {tr('logout')}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -60,25 +76,15 @@ export function AdminPage() {
         <Tabs defaultValue="menu">
           <TabsList className="mb-6">
             <TabsTrigger value="menu">
-              <UtensilsCrossed className="size-4 mr-1.5" /> Menu
+              <UtensilsCrossed className="size-4 mr-1.5" /> {tr('menu')}
             </TabsTrigger>
-            <TabsTrigger value="products">
-              <Package className="size-4 mr-1.5" /> Products
-            </TabsTrigger>
-            <TabsTrigger value="orders">
-              <ShoppingCart className="size-4 mr-1.5" /> Orders
+            <TabsTrigger value="pantry">
+              <Package className="size-4 mr-1.5" /> {tr('pantry')}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="menu">
-            <MenuTab />
-          </TabsContent>
-          <TabsContent value="products">
-            <ProductsTab />
-          </TabsContent>
-          <TabsContent value="orders">
-            <OrdersTab />
-          </TabsContent>
+          <TabsContent value="menu"><MenuTab l={l} /></TabsContent>
+          <TabsContent value="pantry"><PantryTab l={l} /></TabsContent>
         </Tabs>
       </main>
     </div>

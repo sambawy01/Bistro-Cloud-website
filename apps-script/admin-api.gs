@@ -16,7 +16,7 @@ const SPREADSHEET_ID = '1bEt7BVbWfQzlt8t1qh92FxX0e7M-R-_EPvMdU8wJv5M';
 const PEOPLE_SHEET = 'People';
 const OPPORTUNITIES_SHEET = 'Opportunities';
 const NOTIFICATION_EMAIL = 'bistrocloud3@gmail.com';
-const ADMIN_PASSWORD = 'YOUR_PASSWORD_HERE'; // ← Change this!
+const ADMIN_PASSWORD = 'Bistro2026!';
 // ========================================
 
 function doPost(e) {
@@ -94,18 +94,34 @@ function doGet(e) {
 
   try {
     switch (action) {
-      case 'list':
-        return jsonpResponse(callback, adminListRows(sheetName));
-      case 'add':
-        return jsonpResponse(callback, adminAddRow(sheetName, params.payload));
-      case 'update':
-        return jsonpResponse(callback, adminUpdateRow(sheetName, parseInt(params.row), params.payload));
-      case 'delete':
-        return jsonpResponse(callback, adminDeleteRow(sheetName, parseInt(params.row), params.id));
-      case 'toggle':
-        return jsonpResponse(callback, adminToggleField(sheetName, parseInt(params.row), params.field, params.value));
-      case 'archive':
-        return jsonpResponse(callback, adminArchiveRow(parseInt(params.row)));
+      // ── Read actions ──
+      case 'verify':
+        return jsonpResponse(callback, { success: true, message: 'Authenticated' });
+      case 'getMenu':
+        return jsonpResponse(callback, adminGetMenu());
+      case 'getPantry':
+        return jsonpResponse(callback, adminGetPantry());
+      case 'getOrders':
+        return jsonpResponse(callback, adminGetOrders());
+      // ── Write actions (all via GET to avoid 302 redirect issues with POST) ──
+      case 'addItem':
+        return jsonpResponse(callback, adminAddItem(params.item));
+      case 'editItem':
+        return jsonpResponse(callback, adminEditItem(parseInt(params.rowIndex), params.item));
+      case 'deleteItem':
+        return jsonpResponse(callback, adminDeleteItem(parseInt(params.rowIndex)));
+      case 'toggleVisibility':
+        return jsonpResponse(callback, adminToggleVisibility(parseInt(params.rowIndex), params.status));
+      case 'addPantryItem':
+        return jsonpResponse(callback, adminAddPantryItem(params.item));
+      case 'editPantryItem':
+        return jsonpResponse(callback, adminEditPantryItem(parseInt(params.rowIndex), params.item));
+      case 'deletePantryItem':
+        return jsonpResponse(callback, adminDeletePantryItem(parseInt(params.rowIndex)));
+      case 'togglePantryVisibility':
+        return jsonpResponse(callback, adminTogglePantryVisibility(parseInt(params.rowIndex), params.status));
+      case 'archiveOrder':
+        return jsonpResponse(callback, adminArchiveOrder(parseInt(params.rowIndex)));
       default:
         return jsonpResponse(callback, { success: false, error: 'Unknown action: ' + action });
     }
@@ -127,11 +143,14 @@ function jsonpResponse(callback, data) {
 }
 
 // ============ ADMIN CRUD ============
+// Menu sheet ID (separate from CRM sheet)
+const MENU_SHEET_ID = '1kCS-s-Iq0d8xHd7xm0yC59l8ZDt8_gOnHgNEx0oWVcE';
+const PANTRY_SHEET_ID = '1mgee-wfP0v8CRD-8c3B9JUQyFAWdkovLjxkxW_Nl0QQ';
 
-function adminGetSheet(name) {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = ss.getSheetByName(name);
-  if (!sheet) throw new Error('Sheet not found: ' + name);
+function adminGetMenuSheet() {
+  var ss = SpreadsheetApp.openById(MENU_SHEET_ID);
+  var sheet = ss.getSheetByName('Menu');
+  if (!sheet) sheet = ss.getSheets()[0]; // fallback to first sheet
   return sheet;
 }
 
@@ -143,11 +162,11 @@ function adminGetHeaders(sheet) {
   });
 }
 
-function adminListRows(sheetName) {
-  var sheet = adminGetSheet(sheetName);
+function adminGetMenu() {
+  var sheet = adminGetMenuSheet();
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
-  if (lastRow < 2 || lastCol === 0) return { success: true, data: [] };
+  if (lastRow < 2 || lastCol === 0) return { success: true, items: [] };
 
   var headers = adminGetHeaders(sheet);
   var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
@@ -157,91 +176,115 @@ function adminListRows(sheetName) {
     var row = dataRange[i];
     if (row.every(function(cell) { return String(cell).trim() === ''; })) continue;
 
-    var item = { row: i + 2 };
+    var item = { _rowIndex: i + 2 };
     for (var j = 0; j < headers.length; j++) {
-      item[headers[j]] = row[j] !== undefined ? String(row[j]) : '';
+      var val = row[j];
+      // Keep numbers as numbers for id and price
+      if (headers[j] === 'id' || headers[j] === 'price') {
+        item[headers[j]] = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val));
+      } else {
+        item[headers[j]] = val !== undefined ? String(val) : '';
+      }
     }
     items.push(item);
   }
 
-  return { success: true, data: items };
+  return { success: true, items: items };
 }
 
-function adminAddRow(sheetName, payloadStr) {
-  var sheet = adminGetSheet(sheetName);
-  var headers = adminGetHeaders(sheet);
-  var payload = JSON.parse(payloadStr);
+function adminGetOrders() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(PEOPLE_SHEET);
+  if (!sheet) return { success: true, orders: [] };
 
-  if (!payload.id) {
-    payload.id = sheetName.charAt(0).toLowerCase() + Date.now();
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) return { success: true, orders: [] };
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var orders = [];
+
+  for (var i = 0; i < dataRange.length; i++) {
+    var row = dataRange[i];
+    if (row.every(function(cell) { return String(cell).trim() === ''; })) continue;
+
+    var order = { _rowIndex: i + 2 };
+    for (var j = 0; j < headers.length; j++) {
+      order[String(headers[j])] = row[j] !== undefined ? String(row[j]) : '';
+    }
+    orders.push(order);
+  }
+
+  return { success: true, orders: orders };
+}
+
+function adminAddItem(itemStr) {
+  var sheet = adminGetMenuSheet();
+  var headers = adminGetHeaders(sheet);
+  var item = JSON.parse(itemStr);
+
+  if (!item.id) {
+    item.id = Date.now();
   }
 
   var newRow = headers.map(function(h) {
-    return payload[h] || '';
+    return item[h] !== undefined ? item[h] : '';
   });
 
   sheet.appendRow(newRow);
   return { success: true };
 }
 
-function adminUpdateRow(sheetName, rowNum, payloadStr) {
-  var sheet = adminGetSheet(sheetName);
+function adminEditItem(rowIndex, itemStr) {
+  var sheet = adminGetMenuSheet();
   var headers = adminGetHeaders(sheet);
-  var payload = JSON.parse(payloadStr);
+  var item = JSON.parse(itemStr);
 
-  if (rowNum < 2 || rowNum > sheet.getLastRow()) {
-    throw new Error('Invalid row number: ' + rowNum);
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) {
+    throw new Error('Invalid row: ' + rowIndex);
   }
 
   for (var j = 0; j < headers.length; j++) {
     var h = headers[j];
-    if (h === 'id') continue;
-    if (payload.hasOwnProperty(h)) {
-      sheet.getRange(rowNum, j + 1).setValue(payload[h]);
+    if (h === 'id') continue; // don't overwrite ID
+    if (item.hasOwnProperty(h)) {
+      sheet.getRange(rowIndex, j + 1).setValue(item[h]);
     }
   }
 
   return { success: true };
 }
 
-function adminDeleteRow(sheetName, rowNum, id) {
-  var sheet = adminGetSheet(sheetName);
+function adminDeleteItem(rowIndex) {
+  var sheet = adminGetMenuSheet();
 
-  if (rowNum < 2 || rowNum > sheet.getLastRow()) {
-    throw new Error('Invalid row number: ' + rowNum);
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) {
+    throw new Error('Invalid row: ' + rowIndex);
   }
 
-  var headers = adminGetHeaders(sheet);
-  var idCol = headers.indexOf('id');
-  if (idCol >= 0) {
-    var actualId = String(sheet.getRange(rowNum, idCol + 1).getValue());
-    if (id && actualId !== id) {
-      throw new Error('Row ID mismatch. The data may have changed. Please refresh.');
-    }
-  }
-
-  sheet.deleteRow(rowNum);
+  sheet.deleteRow(rowIndex);
   return { success: true };
 }
 
-function adminToggleField(sheetName, rowNum, field, value) {
-  var sheet = adminGetSheet(sheetName);
+function adminToggleVisibility(rowIndex, newStatus) {
+  var sheet = adminGetMenuSheet();
   var headers = adminGetHeaders(sheet);
-  var colIndex = headers.indexOf(field.toLowerCase());
+  var statusCol = headers.indexOf('status');
 
-  if (colIndex < 0) throw new Error('Field not found: ' + field);
-  if (rowNum < 2 || rowNum > sheet.getLastRow()) {
-    throw new Error('Invalid row number: ' + rowNum);
+  if (statusCol < 0) throw new Error('Status column not found');
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) {
+    throw new Error('Invalid row: ' + rowIndex);
   }
 
-  sheet.getRange(rowNum, colIndex + 1).setValue(value);
+  sheet.getRange(rowIndex, statusCol + 1).setValue(newStatus);
   return { success: true };
 }
 
-function adminArchiveRow(rowNum) {
+function adminArchiveOrder(rowIndex) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sourceSheet = ss.getSheetByName(OPPORTUNITIES_SHEET);
-  if (!sourceSheet) throw new Error('Opportunities sheet not found');
+  var sourceSheet = ss.getSheetByName(PEOPLE_SHEET);
+  if (!sourceSheet) throw new Error('People sheet not found');
 
   var archiveSheet = ss.getSheetByName('Archive');
   if (!archiveSheet) {
@@ -250,14 +293,91 @@ function adminArchiveRow(rowNum) {
     archiveSheet.getRange(1, 1, 1, headers[0].length).setValues(headers);
   }
 
-  if (rowNum < 2 || rowNum > sourceSheet.getLastRow()) {
-    throw new Error('Invalid row number: ' + rowNum);
+  if (rowIndex < 2 || rowIndex > sourceSheet.getLastRow()) {
+    throw new Error('Invalid row: ' + rowIndex);
   }
 
-  var rowData = sourceSheet.getRange(rowNum, 1, 1, sourceSheet.getLastColumn()).getValues();
+  var rowData = sourceSheet.getRange(rowIndex, 1, 1, sourceSheet.getLastColumn()).getValues();
   archiveSheet.appendRow(rowData[0]);
-  sourceSheet.deleteRow(rowNum);
+  sourceSheet.deleteRow(rowIndex);
 
+  return { success: true };
+}
+
+// ============ PANTRY CRUD ============
+
+function adminGetPantrySheet() {
+  var ss = SpreadsheetApp.openById(PANTRY_SHEET_ID);
+  var sheet = ss.getSheetByName('Products') || ss.getSheets()[0];
+  return sheet;
+}
+
+function adminGetPantry() {
+  var sheet = adminGetPantrySheet();
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) return { success: true, items: [] };
+
+  var headers = adminGetHeaders(sheet);
+  var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var items = [];
+
+  for (var i = 0; i < dataRange.length; i++) {
+    var row = dataRange[i];
+    if (row.every(function(cell) { return String(cell).trim() === ''; })) continue;
+
+    var item = { _rowIndex: i + 2 };
+    for (var j = 0; j < headers.length; j++) {
+      var val = row[j];
+      if (headers[j] === 'id' || headers[j] === 'price') {
+        item[headers[j]] = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val));
+      } else {
+        item[headers[j]] = val !== undefined ? String(val) : '';
+      }
+    }
+    items.push(item);
+  }
+
+  return { success: true, items: items };
+}
+
+function adminAddPantryItem(itemStr) {
+  var sheet = adminGetPantrySheet();
+  var headers = adminGetHeaders(sheet);
+  var item = JSON.parse(itemStr);
+  if (!item.id) item.id = Date.now();
+  var newRow = headers.map(function(h) { return item[h] !== undefined ? item[h] : ''; });
+  sheet.appendRow(newRow);
+  return { success: true };
+}
+
+function adminEditPantryItem(rowIndex, itemStr) {
+  var sheet = adminGetPantrySheet();
+  var headers = adminGetHeaders(sheet);
+  var item = JSON.parse(itemStr);
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  for (var j = 0; j < headers.length; j++) {
+    var h = headers[j];
+    if (h === 'id') continue;
+    if (item.hasOwnProperty(h)) sheet.getRange(rowIndex, j + 1).setValue(item[h]);
+  }
+  return { success: true };
+}
+
+function adminDeletePantryItem(rowIndex) {
+  var sheet = adminGetPantrySheet();
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  sheet.deleteRow(rowIndex);
+  return { success: true };
+}
+
+function adminTogglePantryVisibility(rowIndex, newStatus) {
+  var sheet = adminGetPantrySheet();
+  var headers = adminGetHeaders(sheet);
+  var statusCol = headers.indexOf('status');
+  if (statusCol < 0) throw new Error('Status column not found');
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) throw new Error('Invalid row: ' + rowIndex);
+  sheet.getRange(rowIndex, statusCol + 1).setValue(newStatus);
   return { success: true };
 }
 

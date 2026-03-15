@@ -11,22 +11,25 @@ import {
 import { Switch } from '@/app/components/ui/switch';
 import { uploadToImgBB } from '@/services/imgbbService';
 import { AdminItem } from '@/services/adminService';
+import { AdminLang } from './useAdminLang';
 import { Upload, X } from 'lucide-react';
 
 interface ItemFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  item: AdminItem | null; // null = add mode
+  item: AdminItem | null;
   sheetType: 'Menu' | 'Products';
   onSave: (data: Record<string, string>) => Promise<void>;
+  l: AdminLang;
 }
 
 const MENU_CATEGORIES = ['Mains', 'Salads', 'Sides', 'Desserts', 'Drinks', 'Breakfast'];
 const PRODUCT_CATEGORIES = ['Tallow', 'Broth', 'Sauces', 'Spices', 'Snacks'];
 const DIETARY_OPTIONS = ['Vegan', 'Vegetarian', 'GF', 'Keto', 'Carnivore', 'High Protein', 'Dairy-Free'];
-const STATUS_OPTIONS = ['available', 'limited', 'sold_out'];
+const STATUS_OPTIONS = ['available', 'limited', 'sold_out', 'hidden'];
 
-export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave }: ItemFormDialogProps) {
+export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave, l }: ItemFormDialogProps) {
+  const { tr } = l;
   const categories = sheetType === 'Menu' ? MENU_CATEGORIES : PRODUCT_CATEGORIES;
   const isEdit = !!item;
 
@@ -102,27 +105,27 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave }: 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+          <DialogTitle>{isEdit ? tr('edit_item') : tr('add_new_item')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium mb-1 block">Name *</label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Item name" />
+            <label className="text-sm font-medium mb-1 block">{tr('name')} *</label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder={tr('item_name')} />
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1 block">Description</label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Item description" />
+            <label className="text-sm font-medium mb-1 block">{tr('description')}</label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={tr('item_description')} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium mb-1 block">Price (EGP) *</label>
+              <label className="text-sm font-medium mb-1 block">{tr('price_egp')} *</label>
               <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" min="0" />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Category</label>
+              <label className="text-sm font-medium mb-1 block">{tr('category')}</label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -133,21 +136,19 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave }: 
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1 block">Status</label>
+            <label className="text-sm font-medium mb-1 block">{tr('status')}</label>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STATUS_OPTIONS.map(s => (
-                  <SelectItem key={s} value={s}>
-                    {s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                  </SelectItem>
+                  <SelectItem key={s} value={s}>{tr(s)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1 block">Dietary Tags</label>
+            <label className="text-sm font-medium mb-1 block">{tr('dietary_tags')}</label>
             <div className="flex flex-wrap gap-2">
               {DIETARY_OPTIONS.map(tag => (
                 <button
@@ -167,7 +168,7 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave }: 
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1 block">Image</label>
+            <label className="text-sm font-medium mb-1 block">{tr('image')}</label>
             <div
               onDragOver={e => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
@@ -178,7 +179,7 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave }: 
               }`}
             >
               {uploading ? (
-                <p className="text-sm text-muted-foreground">Uploading...</p>
+                <p className="text-sm text-muted-foreground">{tr('uploading')}</p>
               ) : imageUrl ? (
                 <div className="relative inline-block">
                   <img src={imageUrl} alt="Preview" className="h-24 rounded-md object-cover" />
@@ -193,7 +194,7 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave }: 
               ) : (
                 <div className="flex flex-col items-center gap-1">
                   <Upload className="size-6 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Drop image or click to upload</p>
+                  <p className="text-sm text-muted-foreground">{tr('drop_image')}</p>
                 </div>
               )}
               <input
@@ -207,17 +208,17 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave }: 
           </div>
 
           <div className="flex items-center gap-3">
-            <Switch checked={hidden} onCheckedChange={setHidden} />
-            <label className="text-sm font-medium">Hidden from public site</label>
+            <Switch checked={hidden} onCheckedChange={setHidden} className="data-[state=unchecked]:bg-gray-300 data-[state=unchecked]:border-gray-400" />
+            <label className="text-sm font-medium">{tr('hidden_from_site')}</label>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
+            {tr('cancel')}
           </Button>
           <Button onClick={handleSave} disabled={saving || !name.trim() || !price.trim()}>
-            {saving ? 'Saving...' : isEdit ? 'Update' : 'Add Item'}
+            {saving ? tr('saving') : isEdit ? tr('update') : tr('add_item')}
           </Button>
         </DialogFooter>
       </DialogContent>

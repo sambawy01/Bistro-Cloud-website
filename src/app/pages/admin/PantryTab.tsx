@@ -7,8 +7,8 @@ import { Badge } from '@/app/components/ui/badge';
 import { Switch } from '@/app/components/ui/switch';
 import { Input } from '@/app/components/ui/input';
 import {
-  AdminItem, getMenuItems, addMenuItem, editMenuItem, deleteMenuItem,
-  toggleItemVisibility, getStoredPassword,
+  AdminItem, getPantryItems, addPantryItem, editPantryItem, deletePantryItem,
+  togglePantryVisibility, getStoredPassword,
 } from '@/services/adminService';
 import { ItemFormDialog } from './ItemFormDialog';
 import { AdminLang } from './useAdminLang';
@@ -18,7 +18,7 @@ import { Plus, Pencil, Trash2, Loader2, ArrowUp, ArrowDown, Search } from 'lucid
 type SortKey = 'name' | 'category' | 'price' | 'status' | 'visible';
 type SortDir = 'asc' | 'desc';
 
-export function MenuTab({ l }: { l: AdminLang }) {
+export function PantryTab({ l }: { l: AdminLang }) {
   const { tr } = l;
   const [items, setItems] = useState<AdminItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,10 +32,10 @@ export function MenuTab({ l }: { l: AdminLang }) {
     const pw = getStoredPassword();
     if (!pw) return;
     try {
-      const data = await getMenuItems(pw);
+      const data = await getPantryItems(pw);
       setItems(data);
     } catch (err) {
-      toast.error(tr('failed_load_menu'));
+      toast.error(tr('failed_load_products'));
       console.error(err);
     } finally {
       setLoading(false);
@@ -51,11 +51,11 @@ export function MenuTab({ l }: { l: AdminLang }) {
     const pw = getStoredPassword();
     if (!pw) return;
     if (editItem) {
-      await editMenuItem(pw, editItem._rowIndex, data);
-      toast.success(tr('item_updated'));
+      await editPantryItem(pw, editItem._rowIndex, data);
+      toast.success(tr('product_updated'));
     } else {
-      await addMenuItem(pw, data);
-      toast.success(tr('item_added'));
+      await addPantryItem(pw, data);
+      toast.success(tr('product_added'));
     }
     await fetchItems();
   }
@@ -65,8 +65,8 @@ export function MenuTab({ l }: { l: AdminLang }) {
     const pw = getStoredPassword();
     if (!pw) return;
     try {
-      await deleteMenuItem(pw, item._rowIndex);
-      toast.success(tr('item_deleted'));
+      await deletePantryItem(pw, item._rowIndex);
+      toast.success(tr('product_deleted'));
       await fetchItems();
     } catch { toast.error(tr('failed_delete')); }
   }
@@ -76,7 +76,7 @@ export function MenuTab({ l }: { l: AdminLang }) {
     if (!pw) return;
     const newStatus = item.status === 'available' || item.status === 'limited' ? 'hidden' : 'available';
     try {
-      await toggleItemVisibility(pw, item._rowIndex, newStatus);
+      await togglePantryVisibility(pw, item._rowIndex, newStatus);
       await fetchItems();
     } catch { toast.error(tr('failed_toggle')); }
   }
@@ -122,24 +122,6 @@ export function MenuTab({ l }: { l: AdminLang }) {
     return sortDir === 'asc' ? <ArrowUp className="size-3 inline ml-1" /> : <ArrowDown className="size-3 inline ml-1" />;
   }
 
-  const CATEGORY_COLORS: Record<string, string> = {
-    'main course': 'bg-blue-100 text-blue-800',
-    'mains': 'bg-blue-100 text-blue-800',
-    'salad': 'bg-green-100 text-green-800',
-    'salads': 'bg-green-100 text-green-800',
-    'sandwich': 'bg-amber-100 text-amber-800',
-    'sandwiches': 'bg-amber-100 text-amber-800',
-    'sides': 'bg-purple-100 text-purple-800',
-    'desserts': 'bg-pink-100 text-pink-800',
-    'drinks': 'bg-cyan-100 text-cyan-800',
-    'breakfast': 'bg-orange-100 text-orange-800',
-    'ramadan': 'bg-emerald-100 text-emerald-800',
-  };
-
-  function categoryColor(cat: string): string {
-    return CATEGORY_COLORS[cat.toLowerCase()] || 'bg-gray-100 text-gray-800';
-  }
-
   const statusVariant = (s: string) => {
     if (s === 'available') return 'default' as const;
     if (s === 'limited') return 'secondary' as const;
@@ -153,12 +135,12 @@ export function MenuTab({ l }: { l: AdminLang }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-3">
-        <h2 className="text-lg font-semibold shrink-0">{tr('menu_items')} ({items.length})</h2>
+        <h2 className="text-lg font-semibold shrink-0">{tr('pantry_products')} ({items.length})</h2>
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input placeholder={tr('search_items')} value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
+          <Input placeholder={tr('search_products')} value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
         </div>
-        <Button onClick={openAdd} size="sm" className="shrink-0"><Plus className="size-4 mr-1" /> {tr('add_item')}</Button>
+        <Button onClick={openAdd} size="sm" className="shrink-0"><Plus className="size-4 mr-1" /> {tr('add_product')}</Button>
       </div>
 
       <Table>
@@ -182,7 +164,7 @@ export function MenuTab({ l }: { l: AdminLang }) {
                   {item.image ? <img src={item.image} alt="" className="size-10 rounded object-cover" /> : <div className="size-10 rounded bg-muted" />}
                 </TableCell>
                 <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell><span className={`px-2 py-0.5 rounded-md text-xs font-medium ${categoryColor(item.category)}`}>{item.category}</span></TableCell>
+                <TableCell>{item.category}</TableCell>
                 <TableCell>{item.price} {tr('egp')}</TableCell>
                 <TableCell><Badge variant={statusVariant(item.status)}>{tr(item.status || 'available')}</Badge></TableCell>
                 <TableCell><Switch checked={isVisible} onCheckedChange={() => handleToggleVisibility(item)} className="data-[state=unchecked]:bg-gray-300 data-[state=unchecked]:border-gray-400" /></TableCell>
@@ -196,12 +178,12 @@ export function MenuTab({ l }: { l: AdminLang }) {
             );
           })}
           {getSortedItems().length === 0 && (
-            <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{tr('no_items')}</TableCell></TableRow>
+            <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{tr('no_products')}</TableCell></TableRow>
           )}
         </TableBody>
       </Table>
 
-      <ItemFormDialog open={dialogOpen} onOpenChange={setDialogOpen} item={editItem} sheetType="Menu" onSave={handleSave} l={l} />
+      <ItemFormDialog open={dialogOpen} onOpenChange={setDialogOpen} item={editItem} sheetType="Products" onSave={handleSave} l={l} />
     </div>
   );
 }

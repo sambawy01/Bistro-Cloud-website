@@ -2,28 +2,20 @@ const ADMIN_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzN-s2iKeyjIC_k-
 const STORAGE_KEY = 'bc-admin-pw';
 
 export interface AdminItem {
-  row: number;
-  id: string;
+  _rowIndex: number;
+  id: number | string;
   name: string;
   description: string;
-  price: number;
+  price: number | string;
   category: string;
   image: string;
   dietary: string;
   status: string;
-  hidden: string;
+  hidden?: string;
 }
 
 export interface OrderItem {
-  row: number;
-  date: string;
-  name: string;
-  phone: string;
-  address: string;
-  deliveryArea: string;
-  orderTotal: number;
-  orderSummary: string;
-  status: string;
+  _rowIndex: number;
   [key: string]: string | number;
 }
 
@@ -39,119 +31,138 @@ export function clearStoredPassword() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-let jsonpCounter = 0;
-
 /**
- * Makes a JSONP call to the Apps Script endpoint.
- * Google Apps Script 302-redirects break fetch/POST, so we use <script> tags
- * with a callback parameter. The Apps Script returns `callbackName(json)`.
+ * All requests use GET to avoid the Google Apps Script 302 redirect problem.
+ * POST requests lose their body during the 302 redirect from script.google.com
+ * to script.googleusercontent.com. GET params survive the redirect.
  */
-function jsonpCall<T>(params: Record<string, string>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const callbackName = `__bcAdmin_${Date.now()}_${jsonpCounter++}`;
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error('Request timed out'));
-    }, 15000);
-
-    function cleanup() {
-      clearTimeout(timeout);
-      delete (window as Record<string, unknown>)[callbackName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    (window as Record<string, unknown>)[callbackName] = (data: T) => {
-      cleanup();
-      resolve(data);
-    };
-
-    const qs = new URLSearchParams({ ...params, callback: callbackName }).toString();
-    const script = document.createElement('script');
-    script.src = `${ADMIN_ENDPOINT}?${qs}`;
-    script.onerror = () => {
-      cleanup();
-      reject(new Error('Network error'));
-    };
-    document.body.appendChild(script);
-  });
-}
-
-interface AdminResponse {
-  success: boolean;
-  error?: string;
-  data?: AdminItem[] | OrderItem[];
-}
-
-export async function adminList(sheet: string, password: string): Promise<AdminItem[] | OrderItem[]> {
-  const res = await jsonpCall<AdminResponse>({
-    action: 'list',
-    sheet,
-    password,
-  });
-  if (!res.success) throw new Error(res.error || 'Failed to fetch');
-  return res.data || [];
-}
-
-export async function adminAdd(sheet: string, password: string, item: Record<string, string>): Promise<void> {
-  const res = await jsonpCall<AdminResponse>({
-    action: 'add',
-    sheet,
-    password,
-    payload: JSON.stringify(item),
-  });
-  if (!res.success) throw new Error(res.error || 'Failed to add');
-}
-
-export async function adminUpdate(sheet: string, password: string, row: number, item: Record<string, string>): Promise<void> {
-  const res = await jsonpCall<AdminResponse>({
-    action: 'update',
-    sheet,
-    password,
-    row: String(row),
-    payload: JSON.stringify(item),
-  });
-  if (!res.success) throw new Error(res.error || 'Failed to update');
-}
-
-export async function adminDelete(sheet: string, password: string, row: number, id: string): Promise<void> {
-  const res = await jsonpCall<AdminResponse>({
-    action: 'delete',
-    sheet,
-    password,
-    row: String(row),
-    id,
-  });
-  if (!res.success) throw new Error(res.error || 'Failed to delete');
-}
-
-export async function adminToggle(sheet: string, password: string, row: number, field: string, value: string): Promise<void> {
-  const res = await jsonpCall<AdminResponse>({
-    action: 'toggle',
-    sheet,
-    password,
-    row: String(row),
-    field,
-    value,
-  });
-  if (!res.success) throw new Error(res.error || 'Failed to toggle');
-}
-
-export async function adminArchive(password: string, row: number, id: string): Promise<void> {
-  const res = await jsonpCall<AdminResponse>({
-    action: 'archive',
-    sheet: 'Opportunities',
-    password,
-    row: String(row),
-    id,
-  });
-  if (!res.success) throw new Error(res.error || 'Failed to archive');
+async function apiGet<T>(params: Record<string, string>): Promise<T> {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${ADMIN_ENDPOINT}?${qs}`, { redirect: 'follow' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
 export async function verifyPassword(password: string): Promise<boolean> {
   try {
-    await adminList('Menu', password);
-    return true;
+    const res = await apiGet<{ success: boolean }>({
+      action: 'verify',
+      password,
+    });
+    return res.success === true;
   } catch {
     return false;
   }
+}
+
+export async function getMenuItems(password: string): Promise<AdminItem[]> {
+  const res = await apiGet<{ success: boolean; items?: AdminItem[]; error?: string }>({
+    action: 'getMenu',
+    password,
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to fetch menu');
+  return res.items || [];
+}
+
+export async function getPantryItems(password: string): Promise<AdminItem[]> {
+  const res = await apiGet<{ success: boolean; items?: AdminItem[]; error?: string }>({
+    action: 'getPantry',
+    password,
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to fetch pantry');
+  return res.items || [];
+}
+
+export async function addPantryItem(password: string, item: Record<string, string>): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'addPantryItem',
+    password,
+    item: JSON.stringify(item),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to add pantry item');
+}
+
+export async function editPantryItem(password: string, rowIndex: number, item: Record<string, string>): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'editPantryItem',
+    password,
+    rowIndex: String(rowIndex),
+    item: JSON.stringify(item),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to update pantry item');
+}
+
+export async function deletePantryItem(password: string, rowIndex: number): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'deletePantryItem',
+    password,
+    rowIndex: String(rowIndex),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to delete pantry item');
+}
+
+export async function togglePantryVisibility(password: string, rowIndex: number, newStatus: string): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'togglePantryVisibility',
+    password,
+    rowIndex: String(rowIndex),
+    status: newStatus,
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to toggle visibility');
+}
+
+export async function getOrders(password: string): Promise<OrderItem[]> {
+  const res = await apiGet<{ success: boolean; orders?: OrderItem[]; error?: string }>({
+    action: 'getOrders',
+    password,
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to fetch orders');
+  return res.orders || [];
+}
+
+export async function addMenuItem(password: string, item: Record<string, string>): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'addItem',
+    password,
+    item: JSON.stringify(item),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to add item');
+}
+
+export async function editMenuItem(password: string, rowIndex: number, item: Record<string, string>): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'editItem',
+    password,
+    rowIndex: String(rowIndex),
+    item: JSON.stringify(item),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to update item');
+}
+
+export async function deleteMenuItem(password: string, rowIndex: number): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'deleteItem',
+    password,
+    rowIndex: String(rowIndex),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to delete item');
+}
+
+export async function toggleItemVisibility(password: string, rowIndex: number, newStatus: string): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'toggleVisibility',
+    password,
+    rowIndex: String(rowIndex),
+    status: newStatus,
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to toggle visibility');
+}
+
+export async function archiveOrder(password: string, rowIndex: number): Promise<void> {
+  const res = await apiGet<{ success: boolean; error?: string }>({
+    action: 'archiveOrder',
+    password,
+    rowIndex: String(rowIndex),
+  });
+  if (!res.success) throw new Error(res.error || 'Failed to archive order');
 }
