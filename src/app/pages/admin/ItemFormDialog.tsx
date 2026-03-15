@@ -5,14 +5,47 @@ import {
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Textarea } from '@/app/components/ui/textarea';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/app/components/ui/select';
 import { Switch } from '@/app/components/ui/switch';
 import { uploadToImgBB } from '@/services/imgbbService';
 import { AdminItem } from '@/services/adminService';
 import { AdminLang } from './useAdminLang';
 import { Upload, X } from 'lucide-react';
+
+/**
+ * Compress an image file before uploading.
+ * Resizes to max 1200px wide and uses JPEG quality 0.7.
+ */
+function compressImage(file: File, maxWidth = 1200, quality = 0.7): Promise<File> {
+  return new Promise((resolve) => {
+    // Skip if already small
+    if (file.size < 200_000) { resolve(file); return; }
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          if (blob && blob.size < file.size) {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          } else {
+            resolve(file); // compression didn't help, use original
+          }
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
 
 interface ItemFormDialogProps {
   open: boolean;
@@ -23,7 +56,7 @@ interface ItemFormDialogProps {
   l: AdminLang;
 }
 
-const MENU_CATEGORIES = ['Mains', 'Salads', 'Sides', 'Desserts', 'Drinks', 'Breakfast', 'Ramadan'];
+const MENU_CATEGORIES = ['Mains', 'Salads', 'Sandwiches', 'Sides', 'Desserts', 'Drinks', 'Breakfast', 'Ramadan'];
 const PRODUCT_CATEGORIES = ['Pantry', 'Tallow', 'Broth', 'Sauces', 'Spices', 'Snacks'];
 const DIETARY_OPTIONS = ['Vegan', 'Vegetarian', 'GF', 'Keto', 'Carnivore', 'High Protein', 'Dairy-Free'];
 const STATUS_OPTIONS = ['available', 'limited', 'sold_out', 'hidden'];
@@ -87,7 +120,8 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave, l 
     if (!file.type.startsWith('image/')) return;
     setUploading(true);
     try {
-      const url = await uploadToImgBB(file);
+      const compressed = await compressImage(file);
+      const url = await uploadToImgBB(compressed);
       setImageUrl(url);
     } catch (err) {
       console.error('Upload failed:', err);
@@ -161,25 +195,27 @@ export function ItemFormDialog({ open, onOpenChange, item, sheetType, onSave, l 
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">{tr('category')}</label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <select
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+              >
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
           </div>
 
           <div>
             <label className="text-sm font-medium mb-1 block">{tr('status')}</label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map(s => (
-                  <SelectItem key={s} value={s}>{tr(s)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              value={status}
+              onChange={e => setStatus(e.target.value)}
+              className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+            >
+              {STATUS_OPTIONS.map(s => (
+                <option key={s} value={s}>{tr(s)}</option>
+              ))}
+            </select>
           </div>
 
           <div>
