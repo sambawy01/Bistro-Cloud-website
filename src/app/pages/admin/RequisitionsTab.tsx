@@ -16,9 +16,19 @@ import { Role } from '@/services/adminService';
 import { RecipeManagerDialog } from './RecipeManagerDialog';
 import { AdminLang } from './useAdminLang';
 import { toast } from 'sonner';
-import { Loader2, BookOpen, Minus, PackagePlus, ClipboardList, Check, X } from 'lucide-react';
+import { Loader2, BookOpen, Minus, PackagePlus, ClipboardList, Check, X, Plus, Trash2, Send } from 'lucide-react';
 
 const DEDUCTION_REASONS = ['Kitchen Use', 'Waste', 'Staff Meal', 'Other'];
+
+interface CartItem {
+  id: number;
+  itemName: string;
+  quantity: string;
+  reason: string;
+  unit: string;
+}
+
+let cartIdCounter = 0;
 
 export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
   const { tr } = l;
@@ -35,12 +45,15 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Manual deduction state
-  const [manualItem, setManualItem] = useState('');
-  const [manualQty, setManualQty] = useState('');
-  const [manualReason, setManualReason] = useState(DEDUCTION_REASONS[0]);
-  const [manualPerformedBy, setManualPerformedBy] = useState('');
-  const [manualSubmitting, setManualSubmitting] = useState(false);
+  // Cart-based manual deduction
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartPerformedBy, setCartPerformedBy] = useState('');
+  const [cartSubmitting, setCartSubmitting] = useState(false);
+
+  // Quick-add row state
+  const [addItem, setAddItem] = useState('');
+  const [addQty, setAddQty] = useState('');
+  const [addReason, setAddReason] = useState(DEDUCTION_REASONS[0]);
 
   // Restock state (accounting only)
   const [restockItemName, setRestockItemName] = useState('');
@@ -80,6 +93,7 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
   const menuItems = [...new Set(allRecipes.map(r => r.menu_item))].sort();
   const pendingReqs = requisitions.filter(r => r.status === 'Pending');
 
+  // ── Recipe deduction ──
   async function handleMenuItemChange(menuItem: string) {
     setSelectedMenuItem(menuItem);
     if (!menuItem) { setRecipeIngredients([]); return; }
@@ -110,21 +124,45 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
     }
   }
 
-  async function handleManualSubmit() {
-    if (!manualItem || Number(manualQty) < 1) return;
-    setManualSubmitting(true);
+  // ── Cart functions ──
+  function handleAddToCart() {
+    if (!addItem || !addQty || Number(addQty) < 1) return;
+    const stock = stockItems.find(s => s.name === addItem);
+    setCart(prev => [...prev, {
+      id: ++cartIdCounter,
+      itemName: addItem,
+      quantity: addQty,
+      reason: addReason,
+      unit: stock?.unit || '',
+    }]);
+    setAddItem('');
+    setAddQty('');
+  }
+
+  function handleRemoveFromCart(id: number) {
+    setCart(prev => prev.filter(c => c.id !== id));
+  }
+
+  async function handleSubmitCart() {
+    if (cart.length === 0) return;
+    setCartSubmitting(true);
     try {
-      await submitManualRequisition(manualItem, Number(manualQty), manualReason, manualPerformedBy.trim() || 'Chef');
-      toast.success(tr('inv_req_submitted'));
-      setManualItem(''); setManualQty(''); setManualPerformedBy('');
+      const by = cartPerformedBy.trim() || 'Chef';
+      for (const item of cart) {
+        await submitManualRequisition(item.itemName, Number(item.quantity), item.reason, by);
+      }
+      toast.success(tr('inv_req_submitted') + ` (${cart.length} ${tr('inv_items_label')})`);
+      setCart([]);
+      setCartPerformedBy('');
       await fetchAll();
     } catch (err: any) {
       toast.error(err.message || tr('inv_failed_submit'));
     } finally {
-      setManualSubmitting(false);
+      setCartSubmitting(false);
     }
   }
 
+  // ── Restock ──
   async function handleRestock() {
     if (!restockItemName || Number(restockQty) < 1) return;
     const item = stockItems.find(s => s.name === restockItemName);
@@ -142,6 +180,7 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
     }
   }
 
+  // ── Approve / Reject ──
   async function handleApprove(req: Requisition) {
     setApprovingRow(req._rowIndex);
     try {
@@ -169,6 +208,7 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
     }
   }
 
+  // ── Badge helpers ──
   function statusBadge(status: string) {
     if (status === 'Approved') return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">{tr('inv_status_approved')}</Badge>;
     if (status === 'Rejected') return <Badge variant="destructive">{tr('inv_status_rejected')}</Badge>;
@@ -257,8 +297,8 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
         </div>
       )}
 
-      {/* Action cards */}
-      <div className={`grid gap-4 ${canRestock && canSubmitReqs ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+      {/* Action cards row */}
+      <div className={`grid gap-4 ${canRestock ? 'md:grid-cols-2' : ''}`}>
         {/* Recipe Deduction Card — chef & admin */}
         {canSubmitReqs && (
           <div className="rounded-lg border bg-white p-4 space-y-3">
@@ -287,13 +327,15 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
                 ))}
               </div>
             )}
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_portions')}</label>
-              <Input type="number" value={portions} onChange={e => setPortions(e.target.value)} min="1" className="h-8" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_performed_by')}</label>
-              <Input value={recipePerformedBy} onChange={e => setRecipePerformedBy(e.target.value)} placeholder={isChef ? 'Chef' : 'Admin'} className="h-8" />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_portions')}</label>
+                <Input type="number" value={portions} onChange={e => setPortions(e.target.value)} min="1" className="h-8" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_performed_by')}</label>
+                <Input value={recipePerformedBy} onChange={e => setRecipePerformedBy(e.target.value)} placeholder={isChef ? 'Chef' : 'Admin'} className="h-8" />
+              </div>
             </div>
             <Button
               onClick={handleRecipeSubmit}
@@ -301,55 +343,7 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
               className="w-full"
               size="sm"
             >
-              {submitting ? <Loader2 className="size-4 animate-spin mr-1" /> : <Minus className="size-4 mr-1" />}
-              {isChef ? tr('inv_submit_requisition') : tr('inv_deduct_stock')}
-            </Button>
-          </div>
-        )}
-
-        {/* Manual Deduction Card — chef & admin */}
-        {canSubmitReqs && (
-          <div className="rounded-lg border bg-white p-4 space-y-3">
-            <div className="flex items-center gap-2 font-semibold text-sm">
-              <Minus className="size-4 text-amber-600" /> {tr('inv_manual_deduction')}
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_stock_item')}</label>
-              <select
-                value={manualItem}
-                onChange={e => setManualItem(e.target.value)}
-                className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-              >
-                <option value="">{tr('inv_select_item')}</option>
-                {stockItems.map(s => <option key={s._rowIndex} value={s.name}>{s.name} ({s.qty_on_hand} {s.unit})</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_quantity')}</label>
-              <Input type="number" value={manualQty} onChange={e => setManualQty(e.target.value)} min="1" className="h-8" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_reason')}</label>
-              <select
-                value={manualReason}
-                onChange={e => setManualReason(e.target.value)}
-                className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-              >
-                {DEDUCTION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_performed_by')}</label>
-              <Input value={manualPerformedBy} onChange={e => setManualPerformedBy(e.target.value)} placeholder={isChef ? 'Chef' : 'Admin'} className="h-8" />
-            </div>
-            <Button
-              onClick={handleManualSubmit}
-              disabled={manualSubmitting || !manualItem || Number(manualQty) < 1}
-              className="w-full"
-              size="sm"
-              variant="secondary"
-            >
-              {manualSubmitting ? <Loader2 className="size-4 animate-spin mr-1" /> : <Minus className="size-4 mr-1" />}
+              {submitting ? <Loader2 className="size-4 animate-spin mr-1" /> : <Send className="size-4 mr-1" />}
               {isChef ? tr('inv_submit_requisition') : tr('inv_deduct_stock')}
             </Button>
           </div>
@@ -372,13 +366,15 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
                 {stockItems.map(s => <option key={s._rowIndex} value={s.name}>{s.name} ({s.qty_on_hand} {s.unit})</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_quantity')}</label>
-              <Input type="number" value={restockQty} onChange={e => setRestockQty(e.target.value)} min="1" className="h-8" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_performed_by')}</label>
-              <Input value={restockPerformedBy} onChange={e => setRestockPerformedBy(e.target.value)} placeholder="Accounting" className="h-8" />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_quantity')}</label>
+                <Input type="number" value={restockQty} onChange={e => setRestockQty(e.target.value)} min="1" className="h-8" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_performed_by')}</label>
+                <Input value={restockPerformedBy} onChange={e => setRestockPerformedBy(e.target.value)} placeholder="Accounting" className="h-8" />
+              </div>
             </div>
             <Button
               onClick={handleRestock}
@@ -393,7 +389,109 @@ export function RequisitionsTab({ l, role }: { l: AdminLang; role: Role }) {
         )}
       </div>
 
-      {/* Manage Recipes — chef & admin */}
+      {/* Manual Requisition Builder — chef & admin */}
+      {canSubmitReqs && (
+        <div className="rounded-lg border bg-white p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-semibold text-sm">
+              <Minus className="size-4 text-amber-600" /> {tr('inv_manual_deduction')}
+            </div>
+            {cart.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {cart.length} {tr('inv_items_label')}
+              </span>
+            )}
+          </div>
+
+          {/* Add item row */}
+          <div className="flex items-end gap-2">
+            <div className="flex-1 min-w-0">
+              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_stock_item')}</label>
+              <select
+                value={addItem}
+                onChange={e => setAddItem(e.target.value)}
+                className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+              >
+                <option value="">{tr('inv_select_item')}</option>
+                {stockItems.map(s => <option key={s._rowIndex} value={s.name}>{s.name} ({s.qty_on_hand} {s.unit})</option>)}
+              </select>
+            </div>
+            <div className="w-20">
+              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_quantity')}</label>
+              <Input type="number" value={addQty} onChange={e => setAddQty(e.target.value)} min="1" className="h-9" placeholder="0" />
+            </div>
+            <div className="w-32">
+              <label className="text-xs text-muted-foreground mb-1 block">{tr('inv_reason')}</label>
+              <select
+                value={addReason}
+                onChange={e => setAddReason(e.target.value)}
+                className="flex h-9 w-full items-center rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+              >
+                {DEDUCTION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <Button
+              size="sm"
+              className="h-9"
+              onClick={handleAddToCart}
+              disabled={!addItem || !addQty || Number(addQty) < 1}
+            >
+              <Plus className="size-4" />
+            </Button>
+          </div>
+
+          {/* Cart table */}
+          {cart.length > 0 && (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{tr('name')}</TableHead>
+                    <TableHead>{tr('inv_quantity')}</TableHead>
+                    <TableHead>{tr('inv_reason')}</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cart.map(item => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.itemName}</TableCell>
+                      <TableCell>{item.quantity} {item.unit}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{item.reason}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveFromCart(item.id)}>
+                          <Trash2 className="size-3.5 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="flex items-center gap-2 pt-1">
+                <div className="flex-1">
+                  <Input
+                    value={cartPerformedBy}
+                    onChange={e => setCartPerformedBy(e.target.value)}
+                    placeholder={`${tr('inv_performed_by')}: ${isChef ? 'Chef' : 'Admin'}`}
+                    className="h-8"
+                  />
+                </div>
+                <Button
+                  onClick={handleSubmitCart}
+                  disabled={cartSubmitting}
+                  size="sm"
+                >
+                  {cartSubmitting ? <Loader2 className="size-4 animate-spin mr-1" /> : <Send className="size-4 mr-1" />}
+                  {isChef ? tr('inv_submit_all') : tr('inv_deduct_all')} ({cart.length})
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Manage Recipes + Log header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{tr('inv_requisition_log')} ({requisitions.length})</h2>
         {canManageRecipes && (

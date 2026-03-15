@@ -168,6 +168,9 @@ const t: Record<string, Record<Lang, string>> = {
   'inv_status_pending': { en: 'Pending', ar: 'معلق' },
   'inv_status_approved': { en: 'Approved', ar: 'تمت الموافقة' },
   'inv_status_rejected': { en: 'Rejected', ar: 'مرفوض' },
+  'inv_items_label': { en: 'items', ar: 'أصناف' },
+  'inv_submit_all': { en: 'Submit All', ar: 'إرسال الكل' },
+  'inv_deduct_all': { en: 'Deduct All', ar: 'خصم الكل' },
 };
 
 const STORAGE_KEY = 'bc-admin-lang';
