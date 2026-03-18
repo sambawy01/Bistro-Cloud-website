@@ -56,15 +56,15 @@ export function HomePage() {
         </div>
         
         {/* Buttons at bottom of hero */}
-        <div className="absolute bottom-10 left-0 right-0 z-10 flex flex-col sm:flex-row gap-4 justify-center px-4">
+        <div className="absolute bottom-4 sm:bottom-10 left-0 right-0 z-10 flex flex-row gap-2 sm:gap-4 justify-center px-4">
           <Link to="/menu">
-            <Button size="lg" className="w-full sm:w-auto text-lg h-16 px-10 rounded-full bg-[#D94E28] hover:bg-[#c0392b] border-none shadow-[0_0_20px_rgba(217,78,40,0.4)] transition-all hover:scale-105">
+            <Button size="lg" className="text-sm sm:text-lg h-11 sm:h-16 px-5 sm:px-10 rounded-full bg-[#D94E28] hover:bg-[#c0392b] border-none shadow-[0_0_20px_rgba(217,78,40,0.4)] transition-all hover:scale-105">
               See Today's Menu
             </Button>
           </Link>
           <Link to="/catering">
-            <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg h-16 px-10 rounded-full border-2 border-white text-white hover:bg-white hover:text-[#2C3E50] bg-transparent transition-all">
-              Request Catering Quote
+            <Button size="lg" variant="outline" className="text-sm sm:text-lg h-11 sm:h-16 px-5 sm:px-10 rounded-full border-2 border-white text-white hover:bg-white hover:text-[#2C3E50] bg-transparent transition-all">
+              Catering Quote
             </Button>
           </Link>
         </div>
@@ -74,7 +74,7 @@ export function HomePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, y: [0, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white"
+          className="absolute bottom-1 sm:bottom-8 left-1/2 -translate-x-1/2 text-white hidden sm:block"
         >
           <ChevronDown className="w-8 h-8 opacity-70" />
         </motion.div>
