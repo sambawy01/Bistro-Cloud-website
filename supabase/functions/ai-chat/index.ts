@@ -171,8 +171,10 @@ app.post("/", async (c) => {
         if (mode === "plan-builder") {
           const proposal = extractProposal(fullResponse);
           if (proposal) {
-            saveConversation(sessionId, [...messages, { role: "assistant", content: fullResponse }], proposal);
-            forwardToCRM(proposal);
+            await Promise.all([
+              saveConversation(sessionId, [...messages, { role: "assistant", content: fullResponse }], proposal),
+              forwardToCRM(proposal),
+            ]);
           }
         }
       } catch (err) {
@@ -184,11 +186,18 @@ app.post("/", async (c) => {
     },
   });
 
+  // Must set CORS headers manually since raw Response bypasses Hono middleware
+  const origin = c.req.header("origin") || "";
+  const allowedOrigins = ["https://bistro-cloud.com", "https://www.bistro-cloud.com", "http://localhost:5173"];
+  const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": corsOrigin,
+      "Access-Control-Allow-Headers": "Content-Type",
     },
   });
 });

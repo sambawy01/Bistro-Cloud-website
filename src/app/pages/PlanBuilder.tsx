@@ -8,7 +8,8 @@ import { parseAIMessage, type Proposal } from '../../services/aiMessageParser';
 
 interface DisplayMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: string;        // Display text (JSON fences stripped for assistant messages)
+  rawContent?: string;    // Raw AI response (with JSON fences, for localStorage persistence)
   quickReplies: string[];
   proposal: Proposal | null;
   isWelcome?: boolean;
@@ -36,10 +37,13 @@ export function PlanBuilderPage() {
   const [streamingText, setStreamingText] = useState('');
   const [modifyCount, setModifyCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Persist messages — use rawContent for assistant messages so JSON fences survive round-trip
   useEffect(() => {
-    const toSave = messages.filter((m) => !m.isWelcome).map((m) => ({ role: m.role, content: m.content }));
+    const toSave = messages.filter((m) => !m.isWelcome).map((m) => ({
+      role: m.role,
+      content: m.rawContent || m.content,
+    }));
     if (toSave.length > 0) saveMessages('plan-builder', toSave);
   }, [messages]);
 
@@ -83,6 +87,7 @@ export function PlanBuilderPage() {
         setMessages((prev) => [...prev, {
           role: 'assistant',
           content: parsed.text,
+          rawContent: accumulated,
           quickReplies: parsed.quickReplies,
           proposal: parsed.proposal,
         }]);
@@ -111,8 +116,6 @@ export function PlanBuilderPage() {
     e.preventDefault();
     sendMessage(input);
   };
-
-  const lastMessage = messages[messages.length - 1];
 
   return (
     <div className="w-full bg-[#F9F5F0] min-h-screen flex flex-col">
@@ -143,7 +146,6 @@ export function PlanBuilderPage() {
       <div className="border-t border-gray-200 bg-white p-4">
         <form onSubmit={handleSubmit} className="max-w-2xl mx-auto flex gap-3">
           <input
-            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your answer..."
