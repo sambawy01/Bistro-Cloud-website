@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '../components/ui/button';
-import { Check, Anchor, Briefcase, MapPin, UtensilsCrossed, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Check, Anchor, Briefcase, MapPin, UtensilsCrossed, Loader2, Sparkles } from 'lucide-react';
 import { submitCateringInquiry } from '../../services/crmService';
 import weddingImage from '@/assets/699e163a5a4cd8a2c79cb2efaf64cdbdf659f75a.png';
 import boatImage from '@/assets/c278aaff636c8eb3234aefe831140cca51bd2356.png';
@@ -52,6 +53,25 @@ export function CateringPage() {
           </p>
         </div>
       </section>
+
+      {/* AI Plan Builder CTA */}
+      <div className="container mx-auto px-4 -mt-8 relative z-10">
+        <Link
+          to="/plan-builder"
+          className="block bg-gradient-to-r from-[#D94E28] to-[#c0392b] text-white rounded-2xl p-6 md:p-8 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 rounded-xl shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-montserrat font-bold text-lg md:text-xl mb-1">Try Our AI Plan Builder</h3>
+              <p className="text-white/80 text-sm">Build a custom catering plan in 2 minutes — get instant pricing and a menu recommendation.</p>
+            </div>
+            <span className="text-2xl group-hover:translate-x-1 transition-transform hidden md:block">→</span>
+          </div>
+        </Link>
+      </div>
 
       <div className="container mx-auto px-4 py-16 space-y-24">
 
