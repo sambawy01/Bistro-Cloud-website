@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../components/ui/button';
-import { ArrowRight, Star, Leaf, ChefHat, Clock, ChevronDown, MapPin, Plus, Users, MessageCircle, ShoppingBag } from 'lucide-react';
+import { ArrowRight, Star, Leaf, ChefHat, Clock, ChevronDown, ChevronUp, MapPin, Plus, Users, MessageCircle, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCart } from '../context/CartContext';
@@ -9,7 +9,17 @@ import { useProductsData } from '../data/useProductsData';
 
 export function HomePage() {
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const { addItem } = useCart();
+
+  const toggleExpand = (id: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const { menuItems, loading: menuLoading } = useMenuData();
   const { products, loading: productsLoading } = useProductsData();
   
@@ -140,7 +150,21 @@ export function HomePage() {
                           <h3 className="font-montserrat font-bold text-lg text-[#2C3E50] leading-tight">{item.name}</h3>
                           <span className="font-bold text-[#D94E28] whitespace-nowrap ml-2">EGP {item.price}</span>
                         </div>
-                        <p className="text-gray-500 text-sm mb-6 line-clamp-2 leading-relaxed flex-1">{item.description}</p>
+                        <div className="mb-4 flex-1">
+                          <p className={`text-gray-500 text-sm leading-relaxed ${expandedItems.has(item.id) ? '' : 'line-clamp-2'}`}>{item.description}</p>
+                          {item.description && item.description.length > 80 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleExpand(item.id); }}
+                              className="text-[#D94E28] text-xs font-semibold mt-1 flex items-center gap-1 hover:underline"
+                            >
+                              {expandedItems.has(item.id) ? (
+                                <>Less <ChevronUp className="w-3 h-3" /></>
+                              ) : (
+                                <>Read more <ChevronDown className="w-3 h-3" /></>
+                              )}
+                            </button>
+                          )}
+                        </div>
                         <div className="mt-auto pt-4 border-t border-gray-100">
                           {item.status === 'sold_out' ? (
                              <Button disabled className="w-full bg-gray-100 text-gray-400 border border-gray-200">Unavailable</Button>
