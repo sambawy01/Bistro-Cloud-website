@@ -374,53 +374,92 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Google Reviews */}
       <section className="py-24 bg-[#F9F5F0]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <svg className="w-8 h-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              <span className="text-gray-500 font-semibold text-lg">Google Reviews</span>
+            </div>
             <h2 className="font-montserrat font-bold text-3xl md:text-5xl mb-4 text-[#2C3E50]">Loved by El Gouna</h2>
-            <p className="text-gray-600">Don't just take our word for it.</p>
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <div className="flex gap-0.5 text-[#F39C12]">
+                {[...Array(5)].map((_, j) => <Star key={j} className="w-5 h-5 fill-current" />)}
+              </div>
+              <span className="text-gray-600 font-semibold">5.0 on Google</span>
+            </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 relative">
-              <div className="absolute -top-6 left-10 w-12 h-12 bg-[#D94E28] rounded-full flex items-center justify-center text-white text-2xl font-serif">"</div>
-              <div className="flex gap-1 text-[#F39C12] mb-6">
-                {[...Array(5)].map((_, j) => <Star key={j} className="w-5 h-5 fill-current" />)}
-              </div>
-              <p className="text-gray-600 mb-8 italic text-lg leading-relaxed">
-                "The quality is unmatched. You can taste the difference when ingredients are this fresh. My go-to for healthy lunches."
-              </p>
-              <div className="font-bold text-[#2C3E50]">
-                Sarah J. <span className="font-normal text-gray-400 block text-sm mt-1">Resident, Marina</span>
-              </div>
-            </div>
 
-            <div className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 relative">
-              <div className="absolute -top-6 left-10 w-12 h-12 bg-[#D94E28] rounded-full flex items-center justify-center text-white text-2xl font-serif">"</div>
-              <div className="flex gap-1 text-[#F39C12] mb-6">
-                {[...Array(5)].map((_, j) => <Star key={j} className="w-5 h-5 fill-current" />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {[
+              {
+                name: "Sherif Hamdy",
+                text: "Bistro Cloud has quickly become my daily go-to in El Gouna. The daily variety is exceptional, the food quality consistently outstanding, and their on-time service makes it all a fantastic value for money. Highly recommend!",
+                time: "1 week ago"
+              },
+              {
+                name: "Hisham ElSayed",
+                text: "Amazingly delicious food, clean ingredients cooked with passion. I'm a chef and I have seen the kitchen, delivery time always spot on. Value for money wow... keep up the great work!",
+                time: "1 week ago"
+              },
+              {
+                name: "Tarek Foda",
+                text: "Amazing home cooked food, clean ingredients, freshly made, seamless ordering, delivery and payment approach. A blessing to have in El Gouna.",
+                time: "1 week ago"
+              },
+              {
+                name: "Dina Eladly",
+                text: "Delicious and clean food, good variety! Definitely recommended.",
+                time: "6 days ago"
+              }
+            ].map((review, i) => (
+              <div key={i} className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 relative">
+                <div className="absolute -top-6 left-10 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-100">
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                </div>
+                <div className="flex gap-1 text-[#F39C12] mb-4">
+                  {[...Array(5)].map((_, j) => <Star key={j} className="w-5 h-5 fill-current" />)}
+                </div>
+                <p className="text-gray-600 mb-6 italic text-lg leading-relaxed">
+                  "{review.text}"
+                </p>
+                <div className="flex justify-between items-end">
+                  <div className="font-bold text-[#2C3E50]">
+                    {review.name}
+                  </div>
+                  <span className="text-gray-400 text-sm">{review.time}</span>
+                </div>
               </div>
-              <p className="text-gray-600 mb-8 italic text-lg leading-relaxed">
-                "We ordered catering for our team retreat and everyone was blown away. The setup was professional and the food was hot and delicious."
-              </p>
-              <div className="font-bold text-[#2C3E50]">
-                Mark T. <span className="font-normal text-gray-400 block text-sm mt-1">CEO, TechStart Gouna</span>
-              </div>
-            </div>
+            ))}
+          </div>
 
-            <div className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 relative">
-              <div className="absolute -top-6 left-10 w-12 h-12 bg-[#D94E28] rounded-full flex items-center justify-center text-white text-2xl font-serif">"</div>
-              <div className="flex gap-1 text-[#F39C12] mb-6">
-                {[...Array(5)].map((_, j) => <Star key={j} className="w-5 h-5 fill-current" />)}
-              </div>
-              <p className="text-gray-600 mb-8 italic text-lg leading-relaxed">
-                "Finally, a place that takes 'natural' seriously. As a nutritionist, I appreciate the transparency of their open kitchen."
-              </p>
-              <div className="font-bold text-[#2C3E50]">
-                Dr. Laila M. <span className="font-normal text-gray-400 block text-sm mt-1">Nutritionist</span>
-              </div>
-            </div>
+          <div className="text-center mt-12">
+            <a
+              href="https://maps.app.goo.gl/x3GUwezxRr2qiY7m6"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-[#2C3E50] font-bold py-4 px-8 rounded-full shadow-sm border border-gray-200 transition-all hover:shadow-md"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              See All Reviews on Google
+              <ArrowRight className="w-4 h-4" />
+            </a>
           </div>
         </div>
       </section>
