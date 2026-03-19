@@ -57,11 +57,12 @@ Rules:
 { "type": "proposal", "company": "...", "contact": {...}, "headcount": N, "frequency": "...", "location": "...", "dietary": [...], "menuRotation": [{day, theme}...], "pricing": { "perPersonPerDay": N, "weeklyTotal": N, "currency": "EGP", "discounts": [...] } }
 \`\`\`
 
-Pricing guidelines:
-- EGP 85-120/person/day depending on menu complexity
-- 10% discount for daily (5 day) plans
-- Free delivery for orders over EGP 500 (almost all corporate plans qualify)
-- Volume discount for 50+ people
+CATERING PRICING — use these EXACT numbers:
+- Per person per meal: EGP 600 to EGP 1,200 depending on menu selection
+- Budget menu: EGP 600/person. Standard: ~EGP 800/person. Premium: ~EGP 1,000/person. Luxury full-course: EGP 1,200/person.
+- Weekly formula: headcount × per-meal rate × days per week
+- 10% off for daily (5-day) recurring plans. Free delivery for corporate plans.
+- NEVER quote below EGP 600/person or above EGP 1,200/person.
 
 Service area: Safaga to Ras Ghareb (including Hurghada & El Gouna)`;
 

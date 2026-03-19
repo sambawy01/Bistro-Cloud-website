@@ -118,48 +118,79 @@ export function PlanBuilderPage() {
   };
 
   return (
-    <div className="w-full bg-[#F9F5F0] min-h-screen flex flex-col">
-      <div className="bg-[#2C3E50] text-white py-6 px-4 text-center">
-        <h1 className="font-montserrat font-bold text-2xl md:text-3xl">Build Your Catering Plan</h1>
-        <p className="text-gray-300 text-sm mt-1">Powered by AI — takes about 2 minutes</p>
+    <div className="w-full bg-[#F9F5F0] min-h-screen">
+      {/* Hero Header */}
+      <div className="bg-[#2C3E50] text-white py-12 md:py-16 px-4 text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#2C3E50] to-[#1a252f]" />
+        <div className="relative z-10">
+          <p className="text-[#D94E28] font-semibold text-sm uppercase tracking-[3px] mb-3">AI-Powered</p>
+          <h1 className="font-montserrat font-bold text-3xl md:text-4xl mb-2">Build Your Catering Plan</h1>
+          <p className="text-gray-400 text-sm md:text-base">Get a custom proposal with pricing in about 2 minutes</p>
+        </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto py-6 space-y-4 max-w-2xl mx-auto w-full">
-        {messages.map((msg, i) => (
-          <React.Fragment key={i}>
-            {msg.proposal ? (
-              <ProposalCard proposal={msg.proposal} onModify={handleModify} modifyCount={modifyCount} />
-            ) : (
-              <ChatMessage role={msg.role} content={msg.content} />
-            )}
-            {i === messages.length - 1 && msg.quickReplies.length > 0 && !isStreaming && (
-              <QuickReplies replies={msg.quickReplies} onSelect={sendMessage} disabled={isStreaming} />
-            )}
-          </React.Fragment>
-        ))}
+      {/* Chat Container — centered card */}
+      <div className="max-w-2xl mx-auto px-4 -mt-6 relative z-10 pb-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
 
-        {isStreaming && streamingText && (
-          <ChatMessage role="assistant" content={streamingText} isStreaming />
-        )}
-      </div>
+          {/* Messages */}
+          <div ref={scrollRef} className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
+            {messages.map((msg, i) => (
+              <React.Fragment key={i}>
+                {msg.proposal ? (
+                  <ProposalCard proposal={msg.proposal} onModify={handleModify} modifyCount={modifyCount} />
+                ) : msg.isWelcome ? (
+                  /* Styled welcome message */
+                  <div className="text-center py-4">
+                    <div className="w-14 h-14 bg-[#D94E28]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">🍽️</span>
+                    </div>
+                    <h2 className="font-montserrat font-bold text-lg text-[#2C3E50] mb-2">
+                      Welcome to the Plan Builder!
+                    </h2>
+                    <p className="text-gray-500 text-sm leading-relaxed max-w-md mx-auto">
+                      I'll help you design the perfect catering plan for your team. Let's start with a few questions.
+                    </p>
+                    <p className="text-[#2C3E50] font-semibold text-sm mt-4">
+                      What's your company name?
+                    </p>
+                  </div>
+                ) : (
+                  <ChatMessage role={msg.role} content={msg.content} />
+                )}
+                {i === messages.length - 1 && msg.quickReplies.length > 0 && !isStreaming && (
+                  <QuickReplies replies={msg.quickReplies} onSelect={sendMessage} disabled={isStreaming} />
+                )}
+              </React.Fragment>
+            ))}
 
-      <div className="border-t border-gray-200 bg-white p-4">
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto flex gap-3">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your answer..."
-            disabled={isStreaming}
-            className="flex-1 px-4 py-3 rounded-full bg-[#F9F5F0] border border-gray-200 focus:border-[#D94E28] focus:ring-0 outline-none text-sm transition-colors disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={isStreaming || !input.trim()}
-            className="w-11 h-11 rounded-full bg-[#D94E28] text-white flex items-center justify-center shrink-0 hover:bg-[#c0392b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ArrowUp className="w-5 h-5" />
-          </button>
-        </form>
+            {isStreaming && streamingText && (
+              <ChatMessage role="assistant" content={streamingText} isStreaming />
+            )}
+          </div>
+
+          {/* Input — inside the card, right below messages */}
+          <div className="border-t border-gray-100 p-4 bg-[#FAFAF8]">
+            <form onSubmit={handleSubmit} className="flex gap-3">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your answer..."
+                disabled={isStreaming}
+                autoFocus
+                className="flex-1 px-5 py-3.5 rounded-xl bg-white border border-gray-200 focus:border-[#D94E28] focus:ring-1 focus:ring-[#D94E28]/20 outline-none text-sm transition-all disabled:opacity-50 font-medium placeholder:font-normal"
+              />
+              <button
+                type="submit"
+                disabled={isStreaming || !input.trim()}
+                className="w-12 h-12 rounded-xl bg-[#D94E28] text-white flex items-center justify-center shrink-0 hover:bg-[#c0392b] transition-all hover:shadow-lg hover:shadow-[#D94E28]/25 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              >
+                <ArrowUp className="w-5 h-5" />
+              </button>
+            </form>
+          </div>
+
+        </div>
       </div>
     </div>
   );
