@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '../components/ui/button';
 import { Link } from 'react-router-dom';
-import { Check, Anchor, Briefcase, MapPin, UtensilsCrossed, Loader2, Sparkles } from 'lucide-react';
+import { Check, Anchor, Briefcase, MapPin, UtensilsCrossed, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import { submitCateringInquiry } from '../../services/crmService';
 import weddingImage from '@/assets/699e163a5a4cd8a2c79cb2efaf64cdbdf659f75a.png';
 import boatImage from '@/assets/c278aaff636c8eb3234aefe831140cca51bd2356.png';
@@ -54,21 +54,34 @@ export function CateringPage() {
         </div>
       </section>
 
-      {/* AI Plan Builder CTA */}
-      <div className="container mx-auto px-4 -mt-8 relative z-10">
+      {/* AI Plan Builder CTA — Full Section */}
+      <div className="container mx-auto px-4 -mt-10 relative z-10 mb-8">
         <Link
           to="/plan-builder"
-          className="block bg-gradient-to-r from-[#D94E28] to-[#c0392b] text-white rounded-2xl p-6 md:p-8 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 group"
+          className="block bg-gradient-to-br from-[#D94E28] via-[#c0392b] to-[#a83520] text-white rounded-3xl p-8 md:p-12 shadow-2xl hover:shadow-[0_20px_60px_rgba(217,78,40,0.3)] transition-all hover:-translate-y-1 group overflow-hidden relative"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-xl shrink-0">
-              <Sparkles className="w-6 h-6" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-10">
+            <div className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+              <Sparkles className="w-10 h-10" />
             </div>
             <div className="flex-1">
-              <h3 className="font-montserrat font-bold text-lg md:text-xl mb-1">Try Our AI Plan Builder</h3>
-              <p className="text-white/80 text-sm">Build a custom catering plan in 2 minutes — get instant pricing and a menu recommendation.</p>
+              <p className="text-white/60 font-semibold text-xs uppercase tracking-[3px] mb-2">New — AI-Powered</p>
+              <h3 className="font-montserrat font-bold text-2xl md:text-3xl mb-3">Build Your Catering Plan in 2 Minutes</h3>
+              <p className="text-white/80 text-base md:text-lg leading-relaxed max-w-xl">
+                Tell our AI about your event — number of guests, dietary needs, budget — and get a custom menu proposal with pricing instantly. No waiting, no back-and-forth.
+              </p>
+              <div className="flex flex-wrap gap-3 mt-5">
+                {['Custom Menus', 'Instant Pricing', 'Dietary Options', 'Free Delivery'].map((tag) => (
+                  <span key={tag} className="px-4 py-1.5 rounded-full bg-white/15 text-sm font-medium">{tag}</span>
+                ))}
+              </div>
             </div>
-            <span className="text-2xl group-hover:translate-x-1 transition-transform hidden md:block">→</span>
+            <div className="flex items-center gap-2 text-lg font-semibold whitespace-nowrap group-hover:gap-3 transition-all md:self-center">
+              Try It Now <ArrowRight className="w-5 h-5" />
+            </div>
           </div>
         </Link>
       </div>
