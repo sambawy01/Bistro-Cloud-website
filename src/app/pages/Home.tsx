@@ -62,11 +62,14 @@ export function HomePage() {
               See Today's Menu
             </Button>
           </Link>
-          <Link to="/catering">
-            <Button size="lg" variant="outline" className="text-sm sm:text-lg h-11 sm:h-16 px-5 sm:px-10 rounded-full border-2 border-white text-white hover:bg-white hover:text-[#2C3E50] bg-transparent transition-all">
-              Catering Quote
-            </Button>
-          </Link>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => window.dispatchEvent(new Event('open-plan-builder'))}
+            className="text-sm sm:text-lg h-11 sm:h-16 px-5 sm:px-10 rounded-full border-2 border-white text-white hover:bg-white hover:text-[#2C3E50] bg-transparent transition-all"
+          >
+            Catering Quote
+          </Button>
         </div>
 
         {/* Scroll Indicator */}
@@ -512,9 +515,9 @@ export function HomePage() {
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
             >
-              <Link
-                to="/plan-builder"
-                className="block bg-gradient-to-br from-[#D94E28] to-[#a83520] rounded-3xl p-8 md:p-10 h-full hover:shadow-2xl hover:shadow-[#D94E28]/20 transition-all group hover:-translate-y-1"
+              <button
+                onClick={() => window.dispatchEvent(new Event('open-plan-builder'))}
+                className="block w-full text-left bg-gradient-to-br from-[#D94E28] to-[#a83520] rounded-3xl p-8 md:p-10 h-full hover:shadow-2xl hover:shadow-[#D94E28]/20 transition-all group hover:-translate-y-1"
               >
                 <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
                   <Users className="w-8 h-8 text-white" />
@@ -531,7 +534,7 @@ export function HomePage() {
                 <span className="inline-flex items-center gap-2 text-white font-semibold text-sm group-hover:gap-3 transition-all">
                   Build Your Plan Now <ArrowRight className="w-4 h-4" />
                 </span>
-              </Link>
+              </button>
             </motion.div>
           </div>
         </div>

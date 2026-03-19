@@ -8,12 +8,21 @@ import { Button } from './ui/button';
 import { useCart, CartProvider } from '../context/CartContext';
 import { CartDrawer } from './CartDrawer';
 import { ChatWidget } from './ChatWidget';
+import { PlanBuilderChat } from './PlanBuilderChat';
 
 // Inner component to use cart hook
 function LayoutContent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isPlanBuilderOpen, setIsPlanBuilderOpen] = useState(false);
   const location = useLocation();
   const { toggleCart, totalItems } = useCart();
+
+  // Listen for custom event to open plan builder from any page
+  React.useEffect(() => {
+    const handler = () => setIsPlanBuilderOpen(true);
+    window.addEventListener('open-plan-builder', handler);
+    return () => window.removeEventListener('open-plan-builder', handler);
+  }, []);
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
@@ -203,6 +212,9 @@ function LayoutContent() {
 
       {/* AI Chat Widget */}
       <ChatWidget />
+
+      {/* Plan Builder Chat Window */}
+      <PlanBuilderChat isOpen={isPlanBuilderOpen} onClose={() => setIsPlanBuilderOpen(false)} />
     </div>
   );
 }

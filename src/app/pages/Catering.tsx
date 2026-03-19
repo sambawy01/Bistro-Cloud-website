@@ -56,9 +56,9 @@ export function CateringPage() {
 
       {/* AI Plan Builder CTA — Full Section */}
       <div className="container mx-auto px-4 -mt-10 relative z-10 mb-8">
-        <Link
-          to="/plan-builder"
-          className="block bg-gradient-to-br from-[#D94E28] via-[#c0392b] to-[#a83520] text-white rounded-3xl p-8 md:p-12 shadow-2xl hover:shadow-[0_20px_60px_rgba(217,78,40,0.3)] transition-all hover:-translate-y-1 group overflow-hidden relative"
+        <button
+          onClick={() => window.dispatchEvent(new Event('open-plan-builder'))}
+          className="block w-full text-left bg-gradient-to-br from-[#D94E28] via-[#c0392b] to-[#a83520] text-white rounded-3xl p-8 md:p-12 shadow-2xl hover:shadow-[0_20px_60px_rgba(217,78,40,0.3)] transition-all hover:-translate-y-1 group overflow-hidden relative"
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
@@ -83,7 +83,7 @@ export function CateringPage() {
               Try It Now <ArrowRight className="w-5 h-5" />
             </div>
           </div>
-        </Link>
+        </button>
       </div>
 
       <div className="container mx-auto px-4 py-16 space-y-24">
