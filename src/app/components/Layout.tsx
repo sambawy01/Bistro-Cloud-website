@@ -7,6 +7,7 @@ import logoFooter from '@/assets/8ce61c2b20b01bfb625276cbc7a2d368e6d7d388.png';
 import { Button } from './ui/button';
 import { useCart, CartProvider } from '../context/CartContext';
 import { CartDrawer } from './CartDrawer';
+import { ChatWidget } from './ChatWidget';
 
 // Inner component to use cart hook
 function LayoutContent() {
@@ -199,6 +200,9 @@ function LayoutContent() {
           </div>
         </div>
       </footer>
+
+      {/* AI Chat Widget */}
+      <ChatWidget />
     </div>
   );
 }
