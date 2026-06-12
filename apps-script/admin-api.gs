@@ -448,9 +448,10 @@ function adminTogglePantryVisibility(rowIndex, newStatus) {
  */
 var CRM_TABS = {
   Catering: ['id', 'timestamp', 'name', 'company', 'email', 'phone', 'event_type', 'guest_count', 'event_date', 'location', 'menu_preferences', 'status', 'notes'],
-  Orders:   ['id', 'timestamp', 'name', 'phone', 'delivery_area', 'address', 'order_total', 'order_summary', 'status', 'notes'],
+  Orders:   ['id', 'timestamp', 'name', 'phone', 'email', 'delivery_area', 'address', 'order_total', 'order_summary', 'item_count', 'delivery_date', 'delivery_slot', 'tracking_token', 'status', 'notes'],
   Contacts: ['id', 'timestamp', 'name', 'email', 'phone', 'message', 'status'],
   Pipeline: ['id', 'timestamp', 'type', 'deal_name', 'contact_name', 'company', 'email', 'stage', 'value', 'event_date', 'guest_count', 'location', 'status', 'notes'],
+  Settings: ['setting', 'value'],
 };
 
 /**
@@ -489,6 +490,82 @@ function setupCRM() {
   }
 
   Logger.log('CRM setup complete! Tabs: ' + Object.keys(CRM_TABS).join(', '));
+}
+
+// ============ CAPACITY: SCHEMA MIGRATION + SETTINGS ============
+
+var BISTRO_TZ = 'Africa/Cairo';
+
+/**
+ * Run ONCE from the Apps Script editor after deploying this version.
+ * Appends the new capacity columns to the existing Orders tab (header-based
+ * appends mean column order never matters) and forces the text-like columns
+ * to plain-text format so Sheets doesn't convert '14:30' to a time value.
+ */
+function migrateOrdersTab() {
+  var sheet = crmGetSheet('Orders');
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var wanted = CRM_TABS.Orders;
+  var added = [];
+  for (var i = 0; i < wanted.length; i++) {
+    if (headers.indexOf(wanted[i]) < 0) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue(wanted[i]).setFontWeight('bold');
+      headers.push(wanted[i]);
+      added.push(wanted[i]);
+    }
+  }
+  // Force plain-text format on columns Sheets would otherwise auto-convert.
+  var textCols = ['delivery_date', 'delivery_slot', 'tracking_token'];
+  for (var t = 0; t < textCols.length; t++) {
+    var idx = headers.indexOf(textCols[t]);
+    if (idx >= 0) {
+      sheet.getRange(1, idx + 1, sheet.getMaxRows(), 1).setNumberFormat('@');
+    }
+  }
+  Logger.log('Orders migration done. Added: ' + (added.join(', ') || 'none'));
+}
+
+/**
+ * Run ONCE from the Apps Script editor. Seeds the Settings tab with the
+ * default capacity rules. Edit the cells any time to change the rules —
+ * no redeploy needed.
+ */
+function setupCapacitySettings() {
+  var sheet = crmGetSheet('Settings');
+  if (sheet.getLastRow() > 1) {
+    Logger.log('Settings tab already has values — not overwriting.');
+    return;
+  }
+  var rows = [
+    ['maxOrdersPerHour', 4],
+    ['maxItemsPerHour', 6],
+    ['openHour', 14],
+    ['closeHour', 20],
+    ['leadTimeMins', 30],
+    ['blackoutDates', ''],
+    ['paused', 'FALSE'],
+  ];
+  sheet.getRange(2, 1, rows.length, 2).setValues(rows);
+  Logger.log('Capacity settings seeded.');
+}
+
+function getCapacitySettings() {
+  var sheet = crmGetSheet('Settings');
+  var lastRow = sheet.getLastRow();
+  var rows = lastRow < 2 ? [] : sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  return parseCapacitySettings(rows);
+}
+
+function cairoToday() {
+  return Utilities.formatDate(new Date(), BISTRO_TZ, 'yyyy-MM-dd');
+}
+
+function cairoNowMinutes() {
+  return slotToMinutes(Utilities.formatDate(new Date(), BISTRO_TZ, 'HH:mm'));
 }
 
 // ── CRM helper: get a tab from the CRM sheet (auto-creates if missing) ──
