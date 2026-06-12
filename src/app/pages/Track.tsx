@@ -25,7 +25,7 @@ export function TrackPage() {
       const o = await getOrderStatus(token);
       if (cancelled) return;
       if (o) { setOrder(o); setState('ready'); }
-      else if (state === 'loading') setState('notfound');
+      else setState(s => (s === 'loading' ? 'notfound' : s));
     };
     load();
     const id = setInterval(load, POLL_MS);
@@ -62,9 +62,11 @@ export function TrackPage() {
       <h1 className="font-montserrat font-bold text-3xl text-gray-800 mb-1">
         {order.name ? `${order.name}'s order` : 'Your order'}
       </h1>
-      <p className="text-gray-500 mb-8">
-        Scheduled for today at <span className="font-semibold text-gray-700">{order.deliverySlot ? slotLabel(order.deliverySlot) : '—'}</span>
-      </p>
+      {!isDead && (
+        <p className="text-gray-500 mb-8">
+          Scheduled for today at <span className="font-semibold text-gray-700">{order.deliverySlot ? slotLabel(order.deliverySlot) : '—'}</span>
+        </p>
+      )}
 
       {isPending && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8">
