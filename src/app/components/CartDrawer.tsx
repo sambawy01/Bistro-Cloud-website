@@ -164,7 +164,7 @@ export function CartDrawer() {
           ? `Requested Time: ${label} (busy slot — pending your confirmation)`
           : `Delivery Time: ${label} (confirmed)`;
         const url = `https://wa.me/201221288804?text=${encodeURIComponent(
-          `${baseText}\n${timeLine}${contactText}`)}`;
+          `${baseText}\n${timeLine}${contactText}\nTrack: https://bistro-cloud.com/track?token=${result.trackingToken}`)}`;
         clearCart();
         toggleCart();
         navigateTo(url);
