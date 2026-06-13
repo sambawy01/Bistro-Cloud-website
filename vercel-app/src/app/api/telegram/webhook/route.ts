@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { setOrderStatusByToken } from "@/lib/appsScript";
 import { answerCallbackQuery, editMessageText } from "@/lib/telegram";
-import { actionToStatus } from "@/lib/orderMessage";
+import { actionToStatus, keyboardForStatus } from "@/lib/orderMessage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +70,7 @@ export async function POST(request: Request): Promise<Response> {
     const r = await setOrderStatusByToken(token, status);
     if (r.success) {
       const original = cb.message.text || "Order";
-      await editMessageText(cb.message.chat.id, cb.message.message_id, `${original}\n\n— ${STATUS_LABEL[status] || status}`);
+      await editMessageText(cb.message.chat.id, cb.message.message_id, `${original}\n\n— ${STATUS_LABEL[status] || status}`, keyboardForStatus(status, token));
       await answerCallbackQuery(cb.id, STATUS_LABEL[status] || status);
     } else {
       await answerCallbackQuery(cb.id, r.error || "Update failed");

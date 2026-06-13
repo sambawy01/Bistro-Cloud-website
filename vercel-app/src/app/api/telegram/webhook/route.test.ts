@@ -41,12 +41,22 @@ describe("POST /api/telegram/webhook", () => {
     expect(setOrderStatusByToken).not.toHaveBeenCalled();
   });
 
-  it("maps an Approve tap to setOrderStatusByToken(confirmed) and edits the message", async () => {
+  it("maps an Approve tap to setOrderStatusByToken(confirmed) and edits the message with next-status keyboard", async () => {
     const res = await POST(req(update("approve:tok-abc")));
     expect(res.status).toBe(200);
     expect(setOrderStatusByToken).toHaveBeenCalledWith("tok-abc", "confirmed");
     expect(editMessageText).toHaveBeenCalled();
+    const keyboard = (editMessageText as any).mock.calls[0][3];
+    expect(keyboard).toBeDefined();
+    expect(keyboard.inline_keyboard.flat().length).toBeGreaterThan(0);
     expect(answerCallbackQuery).toHaveBeenCalled();
+  });
+
+  it("passes terminal (no-button) keyboard when delivered", async () => {
+    await POST(req(update("delivered:t")));
+    expect(editMessageText).toHaveBeenCalled();
+    const keyboard = (editMessageText as any).mock.calls[0][3];
+    expect(keyboard).toEqual({ inline_keyboard: [] });
   });
 
   it("maps cancel and delivered actions", async () => {

@@ -49,8 +49,10 @@ export function sendMessage(chatId: string | number, text: string, keyboard?: In
   return call("sendMessage", payload);
 }
 
-export function editMessageText(chatId: string | number, messageId: number, text: string): Promise<TelegramResult> {
-  return call("editMessageText", { chat_id: chatId, message_id: messageId, text, disable_web_page_preview: true });
+export function editMessageText(chatId: string | number, messageId: number, text: string, keyboard?: InlineKeyboard): Promise<TelegramResult> {
+  const payload: Record<string, unknown> = { chat_id: chatId, message_id: messageId, text, disable_web_page_preview: true };
+  if (keyboard) payload.reply_markup = keyboard;
+  return call("editMessageText", payload);
 }
 
 export function answerCallbackQuery(callbackQueryId: string, text?: string): Promise<TelegramResult> {
