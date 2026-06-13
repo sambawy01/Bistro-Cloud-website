@@ -3,6 +3,8 @@
  * and tracking. Same fetch-GET pattern as adminService.ts: GET only,
  * because POST bodies are lost in Google's 302 redirect.
  */
+import { ORDERS_API_BASE } from "../config";
+
 const CRM_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzN-s2iKeyjIC_k-wyNzj6QHOO5eoW14EqWo7fC4kYzYzqyMOygZpCDPpyqPVxhFA/exec';
 
 export interface SlotInfo {
@@ -100,8 +102,6 @@ export async function getOrderStatus(token: string): Promise<TrackedOrder | null
     return null;
   }
 }
-
-import { ORDERS_API_BASE } from "../config";
 
 export type OnSitePaymentMethod = "cod" | "card_on_delivery" | "instapay";
 

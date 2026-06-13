@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
-import { getAvailability, slotLabel, Availability, SlotInfo } from '../../services/orderService';
+import { getAvailability, slotLabel, placeOrderOnSite, Availability, SlotInfo } from '../../services/orderService';
 
 // Local fallback when the availability service is unreachable: same slot
 // generation the site used before capacity control (fail open).
@@ -54,6 +54,7 @@ export function CartDrawer() {
 
   React.useEffect(() => {
     if (!isCartOpen) return;
+    setOrderResult(null);
     let cancelled = false;
     setAvailLoading(true);
     getAvailability()
@@ -95,7 +96,6 @@ export function CartDrawer() {
       const expectedStatus: 'open' | 'busy' =
         selectedSlot === 'asap' ? 'open' : (selectedSlotInfo?.status ?? 'open');
 
-      const { placeOrderOnSite } = await import('../../services/orderService');
       const result = await placeOrderOnSite({
         items: items.map((it) => ({ name: it.name, quantity: it.quantity, price: it.price })),
         name: customerName.trim(),
@@ -292,6 +292,7 @@ export function CartDrawer() {
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     placeholder="you@example.com"
                     required
+                    aria-required="true"
                     className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28]"
                   />
                 </div>
@@ -381,7 +382,7 @@ export function CartDrawer() {
                   disabled={isSubmitting || checkoutBlocked}
                   className="w-full h-14 text-lg font-bold rounded-xl shadow-lg shadow-[#D94E28]/20 disabled:opacity-70"
                 >
-                  {isSubmitting ? 'Placing order...' : 'Checkout via WhatsApp'}
+                  {isSubmitting ? 'Placing order...' : 'Place Order'}
                 </Button>
                 <p className="text-center text-xs text-gray-500 mt-4">
                   Free delivery across all of El Gouna
