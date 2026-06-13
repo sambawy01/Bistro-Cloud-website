@@ -149,6 +149,9 @@ function doGet(e) {
         return jsonpResponse(callback, orderSetStatus(parseInt(params.rowIndex), params.status, params.orderId));
       case 'setOrderStatusByToken':
         return jsonpResponse(callback, orderSetStatusByToken(params.token, params.status));
+      case 'setResendKey':
+        PropertiesService.getScriptProperties().setProperty('RESEND_API_KEY', params.key || '');
+        return jsonpResponse(callback, { success: true });
       // ── Inventory (Stock) CRUD ──
       case 'getStock':
         return jsonpResponse(callback, inventoryGetAll());
@@ -877,6 +880,44 @@ function createKitchenEvent(orderInfo) {
 
 // ============ CAPACITY: CUSTOMER EMAILS ============
 
+// Sends an email via Resend (verified domain bistro-cloud.com) when
+// RESEND_API_KEY is set in Script Properties; otherwise falls back to MailApp
+// so mail still goes out. Returns true on success.
+function sendCustomerEmail(to, subject, htmlBody, replyTo) {
+  if (!to) return false;
+  var key = PropertiesService.getScriptProperties().getProperty('RESEND_API_KEY');
+  if (key) {
+    try {
+      var resp = UrlFetchApp.fetch('https://api.resend.com/emails', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { Authorization: 'Bearer ' + key },
+        muteHttpExceptions: true,
+        payload: JSON.stringify({
+          from: 'Bistro Cloud <orders@bistro-cloud.com>',
+          to: [to],
+          reply_to: replyTo || NOTIFICATION_EMAIL,
+          subject: subject,
+          html: htmlBody
+        })
+      });
+      var code = resp.getResponseCode();
+      if (code >= 200 && code < 300) return true;
+      Logger.log('Resend failed (' + code + '): ' + resp.getContentText().slice(0, 300) + ' — falling back to MailApp');
+    } catch (e) {
+      Logger.log('Resend error: ' + e + ' — falling back to MailApp');
+    }
+  }
+  // Fallback (no key configured, or Resend failed)
+  try {
+    MailApp.sendEmail({ to: to, subject: subject, htmlBody: htmlBody, name: 'Bistro Cloud El Gouna', replyTo: replyTo || NOTIFICATION_EMAIL });
+    return true;
+  } catch (e2) {
+    Logger.log('MailApp fallback failed: ' + e2);
+    return false;
+  }
+}
+
 function escapeHtml(s) {
   return String(s === undefined || s === null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -924,13 +965,7 @@ function sendOrderConfirmationEmail(orderInfo) {
     inner += '<div style="text-align: center; margin: 25px 0;">' +
       '<a href="' + orderTrackingUrl(orderInfo.trackingToken) + '" style="display: inline-block; background: #D94E28; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold;">Track your order</a>' +
     '</div>';
-    MailApp.sendEmail({
-      to: orderInfo.email,
-      subject: 'Bistro Cloud — order confirmed for ' + slotLabel,
-      htmlBody: bistroEmailWrap(inner),
-      name: 'Bistro Cloud El Gouna',
-      replyTo: NOTIFICATION_EMAIL,
-    });
+    sendCustomerEmail(orderInfo.email, 'Bistro Cloud — order confirmed for ' + slotLabel, bistroEmailWrap(inner), NOTIFICATION_EMAIL);
   } catch (error) {
     Logger.log('Confirmation email failed: ' + error.toString());
   }
@@ -952,13 +987,7 @@ function sendOrderDeclineEmail(orderInfo, openSlotLabels) {
       '<div style="text-align: center; margin: 25px 0;">' +
         '<a href="https://wa.me/201221288804" style="display: inline-block; background: #D94E28; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold;">Chat on WhatsApp</a>' +
       '</div>';
-    MailApp.sendEmail({
-      to: orderInfo.email,
-      subject: 'Bistro Cloud — we couldn\'t fit your order in today',
-      htmlBody: bistroEmailWrap(inner),
-      name: 'Bistro Cloud El Gouna',
-      replyTo: NOTIFICATION_EMAIL,
-    });
+    sendCustomerEmail(orderInfo.email, 'Bistro Cloud — we couldn\'t fit your order in today', bistroEmailWrap(inner), NOTIFICATION_EMAIL);
   } catch (error) {
     Logger.log('Decline email failed: ' + error.toString());
   }
@@ -996,13 +1025,7 @@ function sendStatusUpdateEmail(orderInfo, status) {
       '<div style="text-align: center; margin: 25px 0;">' +
         '<a href="' + orderTrackingUrl(orderInfo.trackingToken) + '" style="display: inline-block; background: #D94E28; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold;">Track your order</a>' +
       '</div>';
-    MailApp.sendEmail({
-      to: orderInfo.email,
-      subject: copy.subject,
-      htmlBody: bistroEmailWrap(inner),
-      name: 'Bistro Cloud El Gouna',
-      replyTo: NOTIFICATION_EMAIL,
-    });
+    sendCustomerEmail(orderInfo.email, copy.subject, bistroEmailWrap(inner), NOTIFICATION_EMAIL);
   } catch (error) {
     Logger.log('Status email failed: ' + error.toString());
   }
@@ -1374,13 +1397,7 @@ function sendCateringConfirmationEmail(data) {
       '</div>' +
     '</div>';
 
-    MailApp.sendEmail({
-      to: data.email,
-      subject: subject,
-      htmlBody: htmlBody,
-      name: 'Bistro Cloud El Gouna',
-      replyTo: 'bistrocloud3@gmail.com'
-    });
+    sendCustomerEmail(data.email, subject, htmlBody, NOTIFICATION_EMAIL);
 
     Logger.log('Confirmation email sent to: ' + data.email);
   } catch (error) {
