@@ -79,6 +79,7 @@ async function statusKeyboard(token: string): Promise<InlineKeyboard | undefined
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 interface TgCallback {
   id: string;

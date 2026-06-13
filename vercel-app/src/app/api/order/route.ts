@@ -8,6 +8,7 @@ import { loyverseConfigured, pushReceipt } from "@/lib/loyverse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /** The shape of a successful placeOrder() result (trackingToken + status etc.). */
 type PlaceOrderSuccess = { success: true; status: "confirmed" | "pending_approval"; trackingToken: string; deliverySlot: string; deliveryDate: string; id?: number };

@@ -1131,6 +1131,8 @@ function orderSetStatus(rowIndex, newStatus, orderId) {
     createKitchenEvent(orderInfo);
     sendOrderConfirmationEmail(orderInfo);
     updatePipelineForOrder(row.id, 'Won', 'Completed');
+    try { upsertCustomer({ phone: row.phone, name: row.name, email: row.email, address: row.address, location: '' }); }
+    catch (eCust) { Logger.log('approve upsertCustomer failed (non-fatal): ' + eCust); }
   } else if (newStatus === 'declined') {
     if (prevStatus !== 'declined') {
       var avail = orderGetAvailability().availability;
