@@ -21,8 +21,17 @@ archives** anything.
      (`Salads`, `Ramadan` are expected to be missing).
 4. Matches items by **normalized name** (lowercase, alphanumerics only):
    - no match → plan a **CREATE** (name, category, website price in the store).
-   - match → plan an **UPDATE** when the price differs **or** the category needs
-     fixing (sheet is the source of truth). Genuinely-unchanged items are skipped.
+   - match, single variant → plan an **UPDATE** when the price differs **or** the
+     category needs fixing (sheet is the source of truth). Genuinely-unchanged
+     items are skipped. Updates preserve the existing Loyverse item name (only
+     price and category are changed).
+   - match, **multiple variants** → **SKIPPED** (reported as
+     `multiVariantSkipped`). The Loyverse `POST /items` API treats the `variants`
+     array as authoritative — sending only one variant would silently delete the
+     others. Multi-variant items (e.g. Small/Large sizes) must be updated
+     **manually** in the Loyverse back-office.
+   - website price is missing or not a positive number → **SKIPPED** (reported
+     as `badPrice`). Prevents a `NaN`/`null` price landing in the live catalog.
 5. Reports name collisions (duplicate website rows; duplicate Loyverse names).
 6. After `--apply`, re-fetches the catalog and writes
    `scripts/loyverse-item-map.json` (used by the order-push):

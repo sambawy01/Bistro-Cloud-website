@@ -259,6 +259,8 @@ async function main() {
 
   const itemsToCreate = [];
   const itemsToUpdate = [];
+  const multiVariantSkipped = []; // matched items with >1 variant — skip to avoid data loss
+  const badPrice = []; // items with non-finite or non-positive prices
   const websiteCollisions = []; // duplicate normalized names within the website menu
   let unchanged = 0;
   const seenWebsiteKeys = new Set();
@@ -267,6 +269,12 @@ async function main() {
     const key = normalizeName(w.name);
     const targetCatName = normalizeCategory(w.category, w.name);
     const price = Number(w.price);
+
+    // FIX 3: Guard against non-finite / non-positive prices before doing anything.
+    if (!Number.isFinite(price) || price <= 0) {
+      badPrice.push({ name: w.name, raw: w.price });
+      continue;
+    }
 
     // Detect duplicate website rows (same normalized name). Act on the first;
     // flag the rest so we never double-create.
@@ -282,8 +290,17 @@ async function main() {
       continue;
     }
 
-    // Match exists. Sheet is the source of truth for price; also ensure the
-    // category is set correctly.
+    // FIX 1: If the matched Loyverse item has more than one variant, skip the
+    // update entirely — POST /items treats the variants array as authoritative
+    // and would DELETE any variant absent from the request body.  Multi-variant
+    // items must be updated manually in Loyverse.
+    if ((match.variants?.length ?? 0) > 1) {
+      multiVariantSkipped.push({ name: w.name, key, loyverseName: match.item_name, variantCount: match.variants.length });
+      continue;
+    }
+
+    // Match exists (single variant). Sheet is the source of truth for price;
+    // also ensure the category is set correctly.
     //
     // NOTE on the spec's parenthetical "only update if price differs":
     // taken literally that would skip items whose price already matches but
@@ -306,7 +323,8 @@ async function main() {
     }
 
     itemsToUpdate.push({
-      name: w.name,
+      name: w.name,           // website name (for logging only)
+      loyverseName: match.item_name, // FIX 2: preserve the existing Loyverse name on update
       key,
       loyverseId: match.id,
       variantId: variant?.variant_id,
@@ -343,6 +361,16 @@ async function main() {
 
   console.log(`\nUnchanged: ${unchanged}`);
 
+  console.log(`\nItems SKIPPED — multi-variant (update manually in Loyverse) (${multiVariantSkipped.length}):`);
+  multiVariantSkipped.forEach((s) =>
+    console.log(`  [skip] "${s.loyverseName}" (website: "${s.name}")  variants: ${s.variantCount}`)
+  );
+
+  console.log(`\nItems SKIPPED — bad/missing price (${badPrice.length}):`);
+  badPrice.forEach((b) =>
+    console.log(`  [skip] "${b.name}"  raw price: ${JSON.stringify(b.raw)}`)
+  );
+
   if (websiteCollisions.length) {
     console.log(`\n[!] Website-internal name collisions (duplicate rows, acted on first only) (${websiteCollisions.length}):`);
     websiteCollisions.forEach((c) => console.log(`    - "${c.name}" (normalized: ${c.key})`));
@@ -358,12 +386,13 @@ async function main() {
     console.log(
       `DRY RUN — would create ${categoriesToCreate.length} categories, ` +
         `${itemsToCreate.length} items, update ${itemsToUpdate.length} items ` +
-        `(${unchanged} unchanged). NO WRITES PERFORMED.`
+        `(${unchanged} unchanged, multiVariantSkipped: ${multiVariantSkipped.length}, ` +
+        `badPrice: ${badPrice.length}). NO WRITES PERFORMED.`
     );
     console.log('='.repeat(72));
 
     // Write an inspection-only dry map (NOT the real map). Creates have no ids yet.
-    await writeDryMap(itemsToCreate, itemsToUpdate, lvByName);
+    await writeDryMap(itemsToCreate, itemsToUpdate, multiVariantSkipped, lvByName);
     console.log(`\nWrote inspection map: ${DRY_MAP_FILE.pathname}`);
     console.log('Re-run with --apply to execute. Suggested first: --apply --limit 2');
     return;
@@ -414,7 +443,7 @@ async function main() {
   for (const u of itemsToUpdate) {
     const categoryId = catByName.get(u.targetCatName) || null;
     const body = buildItemBody({
-      itemName: u.name,
+      itemName: u.loyverseName, // FIX 2: preserve the existing Loyverse item name, don't rename
       categoryId,
       price: u.newPrice,
       storeId,
@@ -441,8 +470,17 @@ async function main() {
   console.log('\n' + '='.repeat(72));
   console.log(
     `APPLIED — created ${createdCats} categories, ${createdItems} items, ` +
-      `updated ${updatedItems} items, failed ${failed}.`
+      `updated ${updatedItems} items, failed ${failed}, ` +
+      `multiVariantSkipped: ${multiVariantSkipped.length}, badPrice: ${badPrice.length}.`
   );
+  if (multiVariantSkipped.length) {
+    console.log(`\nMulti-variant items skipped (update manually in Loyverse):`);
+    multiVariantSkipped.forEach((s) => console.log(`  - "${s.loyverseName}" (${s.variantCount} variants)`));
+  }
+  if (badPrice.length) {
+    console.log(`\nBad-price items skipped:`);
+    badPrice.forEach((b) => console.log(`  - "${b.name}"  raw: ${JSON.stringify(b.raw)}`));
+  }
   console.log('='.repeat(72));
 }
 
@@ -471,16 +509,27 @@ async function writeRealMap(finalItems) {
   await writeFile(MAP_FILE, JSON.stringify(map, null, 2) + '\n');
 }
 
-async function writeDryMap(itemsToCreate, itemsToUpdate, lvByName) {
+async function writeDryMap(itemsToCreate, itemsToUpdate, multiVariantSkipped, lvByName) {
   const { writeFile } = await import('node:fs/promises');
   const map = {};
   // Existing/updated items carry real ids.
   for (const u of itemsToUpdate) {
-    map[u.key] = { variant_id: u.variantId, item_name: u.name, loyverse_id: u.loyverseId, _status: 'would_update' };
+    map[u.key] = { variant_id: u.variantId, item_name: u.loyverseName, loyverse_id: u.loyverseId, _status: 'would_update' };
   }
   // Planned creates have no ids yet.
   for (const i of itemsToCreate) {
     map[i.key] = { variant_id: null, item_name: i.name, loyverse_id: null, _status: 'would_create' };
+  }
+  // Multi-variant skipped: real ids known but we won't touch them.
+  for (const s of multiVariantSkipped) {
+    const lv = lvByName.get(s.key);
+    const v = lv?.variants?.[0];
+    map[s.key] = {
+      variant_id: v?.variant_id ?? null,
+      item_name: s.loyverseName,
+      loyverse_id: lv?.id ?? null,
+      _status: 'skipped_multi_variant',
+    };
   }
   await writeFile(DRY_MAP_FILE, JSON.stringify(map, null, 2) + '\n');
 }
