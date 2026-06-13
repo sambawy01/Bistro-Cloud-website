@@ -149,6 +149,8 @@ function doGet(e) {
         return jsonpResponse(callback, orderSetStatus(parseInt(params.rowIndex), params.status, params.orderId));
       case 'setOrderStatusByToken':
         return jsonpResponse(callback, orderSetStatusByToken(params.token, params.status));
+      case 'delayOrder':
+        return jsonpResponse(callback, delayOrder(params.token, parseInt(params.minutes)));
       case 'setResendKey':
         PropertiesService.getScriptProperties().setProperty('RESEND_API_KEY', params.key || '');
         return jsonpResponse(callback, { success: true });
@@ -1031,6 +1033,24 @@ function sendStatusUpdateEmail(orderInfo, status) {
   }
 }
 
+/** orderInfo: { name, email, trackingToken }. Tells the customer their order is
+ * running late and gives the new ETA. Sent via Resend (sendCustomerEmail). */
+function sendDelayEmail(orderInfo, oldSlot, newSlot) {
+  try {
+    if (!orderInfo.email) return;
+    var newLabel = slotLabel12h(newSlot);
+    var oldLabel = slotLabel12h(oldSlot);
+    var inner = '<h2 style="color: #2C3E50; margin-top: 0;">Your order is running a little late</h2>' +
+      '<p style="color: #555; line-height: 1.6;">New estimated delivery: <b>' + escapeHtml(newLabel) + '</b> (was ' + escapeHtml(oldLabel) + '). Thanks for your patience!</p>' +
+      '<div style="text-align: center; margin: 25px 0;">' +
+        '<a href="' + orderTrackingUrl(orderInfo.trackingToken) + '" style="display: inline-block; background: #D94E28; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold;">Track your order</a>' +
+      '</div>';
+    sendCustomerEmail(orderInfo.email, 'Bistro Cloud — updated delivery time', bistroEmailWrap(inner), NOTIFICATION_EMAIL);
+  } catch (error) {
+    Logger.log('Delay email failed: ' + error.toString());
+  }
+}
+
 function orderTrackingUrl(token) {
   return 'https://bistro-cloud.com/track?token=' + token;
 }
@@ -1131,6 +1151,73 @@ function orderSetStatusByToken(token, newStatus) {
       var rowIndex = i + 2;
       var orderId = idCol >= 0 ? sheet.getRange(rowIndex, idCol + 1).getValue() : undefined;
       return orderSetStatus(rowIndex, newStatus, orderId);
+    }
+  }
+  return { success: false, error: 'Order not found' };
+}
+
+/**
+ * Shift an order's delivery_slot forward by N minutes (only 15/30/60 allowed)
+ * and email the customer the new ETA. Drives the Telegram "Running late"
+ * buttons. Looks up the order by tracking_token (same pattern as
+ * orderSetStatusByToken). The new slot is written back as TEXT (setNumberFormat
+ * '@' then setValue) so Sheets never coerces 'HH:mm' into a time value —
+ * mirrors orderPlace's text-hardening. New time is clamped to <= 23:59.
+ * Does NOT touch capacity/lock/calendar logic (delays are occasional; the
+ * later-hour bucket shift is semantically correct per the design spec).
+ */
+function delayOrder(token, minutes) {
+  if (!token) return { success: false, error: 'Missing token' };
+  var mins = parseInt(minutes, 10);
+  if (mins !== 15 && mins !== 30 && mins !== 60) {
+    return { success: false, error: 'Invalid delay amount (only 15/30/60 minutes)' };
+  }
+  var sheet = crmGetSheet('Orders');
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) return { success: false, error: 'No orders' };
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+    return String(h).trim().toLowerCase().replace(/ /g, '_');
+  });
+  var tokCol = headers.indexOf('tracking_token');
+  var slotCol = headers.indexOf('delivery_slot');
+  var emailCol = headers.indexOf('email');
+  var nameCol = headers.indexOf('name');
+  if (tokCol < 0) throw new Error('tracking_token column not found');
+  if (slotCol < 0) throw new Error('delivery_slot column not found');
+  var tokens = sheet.getRange(2, tokCol + 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < tokens.length; i++) {
+    if (String(tokens[i][0]) === String(token)) {
+      var rowIndex = i + 2;
+      var oldSlot = normalizeSlotString(sheet.getRange(rowIndex, slotCol + 1).getValue());
+      if (!/^\d{1,2}:\d{2}$/.test(oldSlot)) {
+        return { success: false, error: 'Order has no valid delivery time' };
+      }
+      var newTotal = slotToMinutes(oldSlot) + mins;
+      var maxMinutes = 23 * 60 + 59; // clamp to 23:59
+      if (newTotal > maxMinutes) newTotal = maxMinutes;
+      var newSlot = minutesToSlot(newTotal);
+      // Write the new slot as TEXT so Sheets can't coerce '14:00' into a time
+      // value (TZ-corruption + capacity-bucket breakage). Format FIRST, then set.
+      var slotCell = sheet.getRange(rowIndex, slotCol + 1);
+      slotCell.setNumberFormat('@');
+      slotCell.setValue(newSlot);
+      var orderInfo = {
+        email: emailCol >= 0 ? String(sheet.getRange(rowIndex, emailCol + 1).getValue() || '') : '',
+        name: nameCol >= 0 ? String(sheet.getRange(rowIndex, nameCol + 1).getValue() || '') : '',
+        trackingToken: String(token),
+      };
+      // Skip the email if the clamp to 23:59 left the slot unchanged (a no-op
+      // re-delay of an already end-of-day order) — a "was 11:59 PM, new 11:59 PM"
+      // email would just confuse the customer.
+      if (newSlot !== oldSlot) sendDelayEmail(orderInfo, oldSlot, newSlot);
+      return {
+        success: true,
+        oldSlot: oldSlot,
+        newSlot: newSlot,
+        oldLabel: slotLabel12h(oldSlot),
+        newLabel: slotLabel12h(newSlot),
+      };
     }
   }
   return { success: false, error: 'Order not found' };
