@@ -100,3 +100,41 @@ export async function getOrderStatus(token: string): Promise<TrackedOrder | null
     return null;
   }
 }
+
+import { ORDERS_API_BASE } from "../config";
+
+export type OnSitePaymentMethod = "cod" | "card_on_delivery" | "instapay";
+
+export interface OnSiteOrderInput {
+  items: { name: string; quantity: number; price: number }[];
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  note?: string;
+  deliverySlot: string; // 'HH:mm'
+  expectedStatus: "open" | "busy";
+  paymentMethod: OnSitePaymentMethod;
+}
+
+export type OnSiteOrderResult =
+  | { ok: true; status: "confirmed" | "pending_approval"; trackingToken: string; deliverySlot: string; paymentMethod: OnSitePaymentMethod; instapay?: string }
+  | { ok: false; code?: "slot_full" | "slot_unavailable" | "busy_retry" | "daily_limit"; error?: string };
+
+/** POST the order to the Vercel backend (the on-site confirmed-sale flow). */
+export async function placeOrderOnSite(input: OnSiteOrderInput): Promise<OnSiteOrderResult> {
+  try {
+    const res = await fetch(`${ORDERS_API_BASE}/api/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const json = (await res.json().catch(() => ({}))) as OnSiteOrderResult;
+    if (res.ok && (json as { ok?: boolean }).ok) return json;
+    // 400/409/502 → carry the structured error/code if present
+    const fail = json as { code?: 'slot_full' | 'slot_unavailable' | 'busy_retry' | 'daily_limit'; error?: string };
+    return { ok: false, code: fail.code, error: fail.error };
+  } catch {
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
