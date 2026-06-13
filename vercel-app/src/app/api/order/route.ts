@@ -3,6 +3,7 @@ import { placeOrder } from "@/lib/appsScript";
 import { telegramConfigured, sendMessage } from "@/lib/telegram";
 import { buildOrderMessage, keyboardForStatus } from "@/lib/orderMessage";
 import { preflight, jsonWithCors } from "@/lib/cors";
+import { loyverseConfigured, pushReceipt } from "@/lib/loyverse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +61,36 @@ export async function POST(request: Request): Promise<Response> {
       await sendMessage(process.env.TELEGRAM_OWNER_CHAT_ID, text, keyboardForStatus(result.status, result.trackingToken));
     } catch (err) {
       console.error("[order] Telegram push failed (non-fatal):", err);
+    }
+  }
+
+  // Part 2: push CONFIRMED orders to Loyverse as a completed receipt (non-fatal).
+  // pending_approval orders are pushed later, when the owner approves them
+  // (handled in the Telegram webhook). A Loyverse failure must never fail the
+  // order — it's already in Sheets + Telegram + email.
+  if (result.status === "confirmed" && loyverseConfigured()) {
+    try {
+      const r = await pushReceipt({
+        items: order.items,
+        name: order.name,
+        phone: order.phone,
+        address: order.address,
+        deliverySlot: order.deliverySlot,
+        paymentMethod: order.paymentMethod,
+        orderTotal: order.orderTotal,
+        trackingToken: result.trackingToken,
+      });
+      if (!r.ok) {
+        console.error("[order] Loyverse push failed (non-fatal):", r.error);
+        if (telegramConfigured() && process.env.TELEGRAM_OWNER_CHAT_ID) {
+          await sendMessage(
+            process.env.TELEGRAM_OWNER_CHAT_ID,
+            `⚠️ Order didn't sync to Loyverse: ${r.error || "unknown error"}`,
+          ).catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.error("[order] Loyverse push threw (non-fatal):", err);
     }
   }
 

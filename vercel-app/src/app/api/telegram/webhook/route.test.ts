@@ -1,14 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/appsScript", () => ({ setOrderStatusByToken: vi.fn(async () => ({ success: true, status: "confirmed" })) }));
+vi.mock("@/lib/appsScript", () => ({
+  setOrderStatusByToken: vi.fn(async () => ({ success: true, status: "confirmed", previousStatus: "pending_approval" })),
+  getOrderStatus: vi.fn(async () => ({
+    success: true,
+    order: {
+      name: "Sara Ali", status: "confirmed", deliveryDate: "2026-06-13", deliverySlot: "14:30",
+      orderSummary: "2x Grilled Chicken (400 EGP)", orderTotal: 400,
+      phone: "+201001234567", address: "12 West Golf", note: "Instapay (bank transfer)", paymentMethod: "instapay",
+    },
+  })),
+}));
 vi.mock("@/lib/telegram", () => ({
   answerCallbackQuery: vi.fn(async () => ({ ok: true, status: 200 })),
   editMessageText: vi.fn(async () => ({ ok: true, status: 200 })),
+  sendMessage: vi.fn(async () => ({ ok: true, status: 200 })),
+}));
+vi.mock("@/lib/loyverse", () => ({
+  loyverseConfigured: vi.fn(() => true),
+  pushReceipt: vi.fn(async () => ({ ok: true, receiptNumber: "1-1001" })),
+  parseOrderSummary: vi.fn((s: string) =>
+    s === "2x Grilled Chicken (400 EGP)" ? [{ name: "Grilled Chicken", quantity: 2, price: 200 }] : []),
 }));
 
 import { POST } from "./route";
-import { setOrderStatusByToken } from "@/lib/appsScript";
-import { answerCallbackQuery, editMessageText } from "@/lib/telegram";
+import { setOrderStatusByToken, getOrderStatus } from "@/lib/appsScript";
+import { answerCallbackQuery, editMessageText, sendMessage } from "@/lib/telegram";
+import { pushReceipt } from "@/lib/loyverse";
 
 const SECRET = "hook-secret";
 
@@ -50,6 +68,46 @@ describe("POST /api/telegram/webhook", () => {
     expect(keyboard).toBeDefined();
     expect(keyboard.inline_keyboard.flat().length).toBeGreaterThan(0);
     expect(answerCallbackQuery).toHaveBeenCalled();
+  });
+
+  it("on Approve, pushes the now-confirmed order to Loyverse (fetched by token)", async () => {
+    const res = await POST(req(update("approve:tok-abc")));
+    expect(res.status).toBe(200);
+    expect(getOrderStatus).toHaveBeenCalledWith("tok-abc", true);
+    expect(pushReceipt).toHaveBeenCalledOnce();
+    expect(pushReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      items: [{ name: "Grilled Chicken", quantity: 2, price: 200 }],
+      paymentMethod: "instapay",
+      orderTotal: 400,
+      trackingToken: "tok-abc",
+    }));
+  });
+
+  it("does NOT push to Loyverse for non-approve transitions (e.g. preparing)", async () => {
+    await POST(req(update("preparing:t")));
+    expect(pushReceipt).not.toHaveBeenCalled();
+  });
+
+  it("does NOT push again when the order was already confirmed (re-tap / redelivery)", async () => {
+    (setOrderStatusByToken as any).mockResolvedValueOnce({ success: true, status: "confirmed", previousStatus: "confirmed" });
+    const res = await POST(req(update("approve:tok-dup")));
+    expect(res.status).toBe(200);
+    expect(pushReceipt).not.toHaveBeenCalled();
+  });
+
+  it("a Loyverse push failure on Approve warns the owner but still answers 200", async () => {
+    (pushReceipt as any).mockResolvedValueOnce({ ok: false, error: "Loyverse HTTP 500" });
+    const res = await POST(req(update("approve:tok-x")));
+    expect(res.status).toBe(200);
+    expect(sendMessage).toHaveBeenCalledOnce();
+    expect((sendMessage as any).mock.calls[0][1]).toContain("didn't sync to Loyverse");
+  });
+
+  it("a thrown getOrderStatus during the push never breaks the 200", async () => {
+    (getOrderStatus as any).mockRejectedValueOnce(new Error("apps script down"));
+    const res = await POST(req(update("approve:tok-y")));
+    expect(res.status).toBe(200);
+    expect(setOrderStatusByToken).toHaveBeenCalled();
   });
 
   it("passes terminal (no-button) keyboard when delivered", async () => {

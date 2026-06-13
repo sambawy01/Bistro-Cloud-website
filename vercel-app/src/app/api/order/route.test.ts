@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/appsScript", () => ({ placeOrder: vi.fn() }));
 vi.mock("@/lib/telegram", () => ({ telegramConfigured: vi.fn(() => true), sendMessage: vi.fn(async () => ({ ok: true, status: 200 })) }));
+vi.mock("@/lib/loyverse", () => ({ loyverseConfigured: vi.fn(() => true), pushReceipt: vi.fn(async () => ({ ok: true })) }));
 
 import { POST, OPTIONS } from "./route";
 import { placeOrder } from "@/lib/appsScript";
 import { sendMessage } from "@/lib/telegram";
+import { pushReceipt } from "@/lib/loyverse";
 
 function req(body: unknown): Request {
   return new Request("https://api.test/api/order", {
@@ -25,6 +27,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.TELEGRAM_OWNER_CHAT_ID = "999";
   process.env.INSTAPAY_DETAILS = "Bank: CIB, Acct: 100012345678";
+  (pushReceipt as any).mockResolvedValue({ ok: true });
 });
 
 describe("POST /api/order", () => {
@@ -83,6 +86,38 @@ describe("POST /api/order", () => {
     const res = await POST(req({ ...validBody, note: "No nuts please" }));
     expect(res.status).toBe(200);
     expect(placeOrder).toHaveBeenCalledWith(expect.objectContaining({ note: "No nuts please" }));
+  });
+
+  it("pushes a confirmed order to Loyverse with the structured cart items", async () => {
+    (placeOrder as any).mockResolvedValue({ success: true, status: "confirmed", trackingToken: "tok-7", deliverySlot: "14:30", deliveryDate: "2026-06-13" });
+    const res = await POST(req(validBody));
+    expect(res.status).toBe(200);
+    expect(pushReceipt).toHaveBeenCalledOnce();
+    expect(pushReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      items: [{ name: "Grilled Chicken", quantity: 2, price: 200 }],
+      paymentMethod: "instapay",
+      orderTotal: 400,
+      trackingToken: "tok-7",
+    }));
+  });
+
+  it("a Loyverse push failure warns the owner but keeps the 200 response", async () => {
+    (placeOrder as any).mockResolvedValue({ success: true, status: "confirmed", trackingToken: "t", deliverySlot: "14:30", deliveryDate: "2026-06-13" });
+    (pushReceipt as any).mockResolvedValue({ ok: false, error: "Loyverse HTTP 500" });
+    const res = await POST(req(validBody));
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+    // sendMessage fired twice: the order push + the Loyverse warning.
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+    expect((sendMessage as any).mock.calls[1][1]).toContain("didn't sync to Loyverse");
+  });
+
+  it("a Loyverse push that throws does not break the 200 response", async () => {
+    (placeOrder as any).mockResolvedValue({ success: true, status: "confirmed", trackingToken: "t", deliverySlot: "14:30", deliveryDate: "2026-06-13" });
+    (pushReceipt as any).mockRejectedValue(new Error("kaboom"));
+    const res = await POST(req(validBody));
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
   });
 
   it("answers OPTIONS preflight with CORS", async () => {
