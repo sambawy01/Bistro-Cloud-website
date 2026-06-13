@@ -89,7 +89,7 @@ export function CartDrawer() {
         return;
       }
       if (!address.trim() || address.trim().length < 5) {
-        alert('Please enter your delivery address.');
+        alert('Please enter a full delivery address (building, street, area).');
         return;
       }
       localStorage.setItem('bc_name', customerName.trim());
@@ -268,7 +268,11 @@ export function CartDrawer() {
                       Welcome back, <span className="font-bold text-[#D94E28]">{customerName.trim()}</span>!
                     </p>
                     <button
-                      onClick={() => { setIsReturning(false); setCustomerName(''); setCustomerPhone(''); localStorage.removeItem('bc_name'); localStorage.removeItem('bc_phone'); }}
+                      onClick={() => {
+                        setIsReturning(false);
+                        setCustomerName(''); setCustomerPhone(''); setCustomerEmail(''); setAddress('');
+                        ['bc_name', 'bc_phone', 'bc_email', 'bc_address'].forEach((k) => localStorage.removeItem(k));
+                      }}
                       className="text-xs text-gray-400 hover:text-gray-600 mt-1"
                     >
                       Not you? Change details
