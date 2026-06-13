@@ -647,6 +647,15 @@ function invalidateAvailabilityCache() {
  *   itemCount, deliverySlot ('HH:mm'), expectedStatus ('open'|'busy')
  */
 function orderPlace(params) {
+  var paymentMethod = String(params.paymentMethod || '');
+  var instapayDetails = String(params.instapayDetails || '');
+  var PAYMENT_LABELS = {
+    cod: 'Cash on delivery',
+    card_on_delivery: 'Card on delivery (POS at door)',
+    instapay: 'Instapay (bank transfer)'
+  };
+  var paymentLabel = PAYMENT_LABELS[paymentMethod] || '';
+
   // Input validation — before any locking or sheet I/O.
   var slotParam = String(params.deliverySlot || '');
   if (!/^\d{1,2}:\d{2}$/.test(slotParam)) {
@@ -701,7 +710,7 @@ function orderPlace(params) {
       delivery_slot: slotParam,
       tracking_token: token,
       status: outcome,
-      notes: params.note || '',
+      notes: (paymentLabel ? paymentLabel + (params.note ? ' — ' : '') : '') + (params.note || ''),
     });
 
     // Force the slot/date/token cells of the row we just appended to plain text.
@@ -768,6 +777,9 @@ function orderPlace(params) {
     deliveryDate: avail.date,
     deliverySlot: slotParam,
     trackingToken: token,
+    paymentMethod: paymentMethod,
+    paymentLabel: paymentLabel,
+    instapayDetails: instapayDetails,
   };
   if (outcome === 'confirmed') {
     createKitchenEvent(orderInfo);
@@ -876,6 +888,19 @@ function sendOrderConfirmationEmail(orderInfo) {
         '<p style="color: #333; margin: 0; white-space: pre-line;">' + escapeHtml(orderInfo.orderSummary) + '</p>' +
         '<p style="color: #2C3E50; font-weight: bold; margin: 10px 0 0;">Total: ' + escapeHtml(orderInfo.orderTotal) + ' EGP</p>' +
       '</div>';
+    if (orderInfo.paymentLabel) {
+      inner += '<p style="color: #555; line-height: 1.6; margin: 12px 0;">Payment: <strong>' + escapeHtml(orderInfo.paymentLabel) + '</strong></p>';
+    }
+    if (orderInfo.paymentMethod === 'instapay' && orderInfo.instapayDetails) {
+      inner += '<div style="background:#F9F5F0;border-radius:12px;padding:16px;margin:12px 0;">' +
+        '<strong>To pay via Instapay, transfer the total to:</strong><br>' +
+        '<span style="white-space:pre-line;">' + escapeHtml(orderInfo.instapayDetails) + '</span><br>' +
+        '<span style="color:#888;">Please transfer the total before your delivery window.</span>' +
+        '</div>';
+    }
+    if (orderInfo.paymentMethod === 'instapay' && !orderInfo.instapayDetails) {
+      Logger.log('WARNING: Instapay order confirmation email sent without bank details (instapayDetails is empty)');
+    }
     inner += '<div style="text-align: center; margin: 25px 0;">' +
       '<a href="' + orderTrackingUrl(orderInfo.trackingToken) + '" style="display: inline-block; background: #D94E28; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold;">Track your order</a>' +
     '</div>';
