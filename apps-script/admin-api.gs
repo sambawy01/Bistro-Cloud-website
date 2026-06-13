@@ -472,6 +472,7 @@ var CRM_TABS = {
   Orders:   ['id', 'timestamp', 'name', 'phone', 'email', 'delivery_area', 'address', 'order_total', 'order_summary', 'item_count', 'delivery_date', 'delivery_slot', 'tracking_token', 'status', 'notes'],
   Contacts: ['id', 'timestamp', 'name', 'email', 'phone', 'message', 'status'],
   Pipeline: ['id', 'timestamp', 'type', 'deal_name', 'contact_name', 'company', 'email', 'stage', 'value', 'event_date', 'guest_count', 'location', 'status', 'notes'],
+  Customers: ['phone', 'name', 'email', 'address', 'location', 'first_seen', 'last_order', 'order_count'],
   Settings: ['setting', 'value'],
 };
 
@@ -651,6 +652,14 @@ function invalidateAvailabilityCache() {
  *   name, phone, email, address, deliveryArea, orderTotal, orderSummary,
  *   itemCount, deliverySlot ('HH:mm'), expectedStatus ('open'|'busy')
  */
+// Prevent Google Sheets formula/CSV injection: if a user-supplied string starts
+// with a formula trigger char, prefix a single quote so Sheets stores it as text.
+function sheetSafeText(s) {
+  var str = String(s == null ? '' : s);
+  if (/^[=+\-@\t\r]/.test(str)) return "'" + str;
+  return str;
+}
+
 function orderPlace(params) {
   var paymentMethod = String(params.paymentMethod || '');
   var instapayDetails = String(params.instapayDetails || '');
@@ -670,6 +679,7 @@ function orderPlace(params) {
   var email = String(params.email || '').trim();
   if (email && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(email)) email = '';
   var itemCount = Math.min(60, Math.max(1, Math.floor(Number(params.itemCount)) || 1));
+  var location = sheetSafeText(params.location);
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) {
@@ -707,7 +717,7 @@ function orderPlace(params) {
       phone: params.phone || '',
       email: email,
       delivery_area: params.deliveryArea || '',
-      address: params.address || '',
+      address: (params.address || '') + (location ? '\n📍 ' + location : ''),
       order_total: params.orderTotal || '',
       order_summary: params.orderSummary || '',
       item_count: itemCount,
@@ -760,6 +770,13 @@ function orderPlace(params) {
       });
     } catch (e) {
       Logger.log('Pipeline append failed: ' + e);
+    }
+
+    // Customers ledger is CRM bookkeeping — never fail the order on it.
+    try {
+      upsertCustomer({ phone: params.phone, name: params.name, email: email, address: params.address, location: location });
+    } catch (eCust) {
+      Logger.log('Customers upsert failed (non-fatal): ' + eCust);
     }
 
     // Commit buffered writes BEFORE releasing the lock, or the next
@@ -1321,6 +1338,67 @@ function crmReadRows(tabName) {
     items.push(item);
   }
   return items;
+}
+
+// ── CRM helper: upsert a customer into the Customers ledger ──
+// data = {phone, name, email, address, location}. Matches on phone with all
+// non-digits stripped. NON-FATAL: any failure here must never throw — a
+// Customers-logging error must not break an order.
+function upsertCustomer(data) {
+  try {
+    var phoneKey = String(data.phone || '').replace(/[^0-9]/g, '');
+    if (!phoneKey) return; // no usable phone — nothing to log
+
+    var sheet = crmGetSheet('Customers'); // auto-creates the tab from CRM_TABS
+    var rows = crmReadRows('Customers');
+    var now = new Date().toISOString();
+
+    var match = null;
+    for (var i = 0; i < rows.length; i++) {
+      var rowKey = String(rows[i].phone || '').replace(/[^0-9]/g, '');
+      if (rowKey && rowKey === phoneKey) {
+        match = rows[i];
+        break;
+      }
+    }
+
+    if (match) {
+      // Resolve header -> column index (mirror crmAppendRow's lookup).
+      var lastCol = sheet.getLastColumn();
+      var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) {
+        return String(h).trim().toLowerCase().replace(/ /g, '_');
+      });
+      // Fall back to existing values so we never wipe data with an empty incoming field.
+      var updates = {
+        name: data.name || match.name,
+        email: data.email || match.email,
+        address: data.address || match.address,
+        location: data.location || match.location,
+        last_order: now,
+        order_count: (Number(match.order_count) || 0) + 1
+      };
+      for (var key in updates) {
+        var ci = headers.indexOf(key);
+        if (ci >= 0) {
+          sheet.getRange(match._rowIndex, ci + 1).setValue(updates[key]);
+        }
+      }
+    } else {
+      // New customer — store the RAW phone so it stays human-readable.
+      crmAppendRow('Customers', {
+        phone: data.phone || '',
+        name: data.name || '',
+        email: data.email || '',
+        address: data.address || '',
+        location: data.location || '',
+        first_seen: now,
+        last_order: now,
+        order_count: 1
+      });
+    }
+  } catch (e) {
+    Logger.log('upsertCustomer failed (non-fatal): ' + e);
+  }
 }
 
 // ── CRM Edit / Delete ──
