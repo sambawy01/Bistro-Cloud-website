@@ -3,6 +3,8 @@
  * and tracking. Same fetch-GET pattern as adminService.ts: GET only,
  * because POST bodies are lost in Google's 302 redirect.
  */
+import { ORDERS_API_BASE } from "../config";
+
 const CRM_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzN-s2iKeyjIC_k-wyNzj6QHOO5eoW14EqWo7fC4kYzYzqyMOygZpCDPpyqPVxhFA/exec';
 
 export interface SlotInfo {
@@ -16,23 +18,6 @@ export interface Availability {
   slots: SlotInfo[];
   asap: string | null; // earliest open slot, or null if none
 }
-
-export interface PlaceOrderInput {
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  deliveryArea: string;
-  orderTotal: number;
-  orderSummary: string;
-  itemCount: number;
-  deliverySlot: string; // 'HH:mm'
-  expectedStatus: 'open' | 'busy';
-}
-
-export type PlaceOrderResult =
-  | { success: true; status: 'confirmed' | 'pending_approval'; trackingToken: string; deliverySlot: string; deliveryDate: string }
-  | { success: false; code: 'slot_full' | 'slot_unavailable' | 'busy_retry' | 'daily_limit'; availability?: Availability };
 
 export interface TrackedOrder {
   name: string;
@@ -72,23 +57,6 @@ export async function getAvailability(): Promise<Availability | null> {
   }
 }
 
-/** Throws on network error so callers can fall back to the legacy flow. */
-export async function placeOrderLive(input: PlaceOrderInput): Promise<PlaceOrderResult> {
-  return apiGet<PlaceOrderResult>({
-    action: 'placeOrder',
-    name: input.name,
-    phone: input.phone,
-    email: input.email,
-    address: input.address,
-    deliveryArea: input.deliveryArea,
-    orderTotal: String(input.orderTotal),
-    orderSummary: input.orderSummary,
-    itemCount: String(input.itemCount),
-    deliverySlot: input.deliverySlot,
-    expectedStatus: input.expectedStatus,
-  });
-}
-
 export async function getOrderStatus(token: string): Promise<TrackedOrder | null> {
   try {
     const res = await apiGet<{ success: boolean; order?: TrackedOrder }>({
@@ -98,5 +66,41 @@ export async function getOrderStatus(token: string): Promise<TrackedOrder | null
     return res.success && res.order ? res.order : null;
   } catch {
     return null;
+  }
+}
+
+export type OnSitePaymentMethod = "cod" | "card_on_delivery" | "instapay";
+
+export interface OnSiteOrderInput {
+  items: { name: string; quantity: number; price: number }[];
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  note?: string;
+  deliverySlot: string; // 'HH:mm'
+  expectedStatus: "open" | "busy";
+  paymentMethod: OnSitePaymentMethod;
+}
+
+export type OnSiteOrderResult =
+  | { ok: true; status: "confirmed" | "pending_approval"; trackingToken: string; deliverySlot: string; paymentMethod: OnSitePaymentMethod }
+  | { ok: false; code?: "slot_full" | "slot_unavailable" | "busy_retry" | "daily_limit"; error?: string };
+
+/** POST the order to the Vercel backend (the on-site confirmed-sale flow). */
+export async function placeOrderOnSite(input: OnSiteOrderInput): Promise<OnSiteOrderResult> {
+  try {
+    const res = await fetch(`${ORDERS_API_BASE}/api/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const json = (await res.json().catch(() => ({}))) as OnSiteOrderResult;
+    if (res.ok && (json as { ok?: boolean }).ok) return json;
+    // 400/409/502 → carry the structured error/code if present
+    const fail = json as { code?: 'slot_full' | 'slot_unavailable' | 'busy_retry' | 'daily_limit'; error?: string };
+    return { ok: false, code: fail.code, error: fail.error };
+  } catch {
+    return { ok: false, error: "Network error. Please try again." };
   }
 }
