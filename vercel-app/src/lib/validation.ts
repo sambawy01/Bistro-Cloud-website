@@ -32,6 +32,8 @@ export interface ValidatedOrder {
   itemCount: number;
   orderTotal: number;
   orderSummary: string;
+  /** Structured line items (per-unit price), retained for the Loyverse receipt push. */
+  items: { name: string; quantity: number; price: number }[];
 }
 
 export type ValidationResult =
@@ -53,6 +55,7 @@ export function validateOrderPayload(body: unknown): ValidationResult {
   let itemCount = 0;
   let orderTotal = 0;
   const summaryLines: string[] = [];
+  const items: { name: string; quantity: number; price: number }[] = [];
   for (const raw of rawItems as RawItem[]) {
     const name = typeof raw.name === "string" ? oneLine(raw.name) : "";
     const qty = Math.floor(Number(raw.quantity));
@@ -63,6 +66,7 @@ export function validateOrderPayload(body: unknown): ValidationResult {
     itemCount += qty;
     orderTotal += qty * price;
     summaryLines.push(`${qty}x ${name} (${qty * price} EGP)`);
+    items.push({ name, quantity: qty, price });
   }
   if (itemCount > MAX_ITEM_COUNT) itemCount = MAX_ITEM_COUNT;
 
@@ -94,6 +98,6 @@ export function validateOrderPayload(body: unknown): ValidationResult {
 
   return {
     ok: true,
-    value: { name, phone, email, address, note, deliverySlot, expectedStatus, paymentMethod, itemCount, orderTotal, orderSummary: summaryLines.join("\n") },
+    value: { name, phone, email, address, note, deliverySlot, expectedStatus, paymentMethod, itemCount, orderTotal, orderSummary: summaryLines.join("\n"), items },
   };
 }

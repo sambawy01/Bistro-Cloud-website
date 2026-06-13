@@ -60,8 +60,41 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
 export type OrderStatus =
   | "pending_approval" | "confirmed" | "preparing" | "out_for_delivery" | "delivered" | "declined" | "cancelled";
 
-export async function setOrderStatusByToken(token: string, status: OrderStatus): Promise<{ success: boolean; status?: string; error?: string }> {
+export async function setOrderStatusByToken(token: string, status: OrderStatus): Promise<{ success: boolean; status?: string; previousStatus?: string; error?: string }> {
   const password = process.env.APPS_SCRIPT_ADMIN_PASSWORD;
   if (!password) throw new Error("APPS_SCRIPT_ADMIN_PASSWORD is not configured");
   return appsScriptGet({ action: "setOrderStatusByToken", password, token, status });
+}
+
+export interface OrderStatusDetail {
+  success: boolean;
+  order?: {
+    name: string;
+    status: string;
+    deliveryDate: string;
+    deliverySlot: string;
+    orderSummary: string;
+    orderTotal: number | string;
+    // Private fields — only returned when a valid admin password is supplied.
+    phone?: string;
+    address?: string;
+    note?: string;
+    paymentMethod?: string;
+  };
+  error?: string;
+}
+
+/**
+ * Fetch an order by its tracking token. With `withPrivate` (admin password
+ * present) the Apps Script also returns phone/address/note/paymentMethod, which
+ * the Telegram approve path needs to build a Loyverse receipt. Without it, only
+ * the public (customer-tracking) fields come back.
+ */
+export async function getOrderStatus(token: string, withPrivate = false): Promise<OrderStatusDetail> {
+  const params: Record<string, string> = { action: "getOrderStatus", token };
+  if (withPrivate) {
+    const password = process.env.APPS_SCRIPT_ADMIN_PASSWORD;
+    if (password) params.password = password;
+  }
+  return appsScriptGet<OrderStatusDetail>(params);
 }
