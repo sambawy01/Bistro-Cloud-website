@@ -159,3 +159,95 @@ export async function markSlaAlerted(token: string): Promise<{ success: boolean;
   if (!password) throw new Error("APPS_SCRIPT_ADMIN_PASSWORD is not configured");
   return appsScriptGet({ action: "markSlaAlerted", password, token });
 }
+
+/**
+ * Owner-DM Telegram agent clients.
+ *
+ * Each wraps an Apps Script action via the same GET-only `appsScriptGet`
+ * pattern as the order clients above. They return a discriminated
+ * `{ success: boolean; ... }` so the agent's tools can treat a non-success
+ * response as a tool error rather than throwing into the tool-calling loop.
+ *
+ * The read/mutate actions (getMenu/getPantry/getStock/getAvailability/getOrders/
+ * getCRMOrders/getContacts/toggleVisibility/togglePantryVisibility/
+ * approveRequisition/rejectRequisition) are assumed to exist server-side;
+ * `logExpense` is net-new and added to the Apps Script in Task 12. Live
+ * existence of these actions must be confirmed during rollout.
+ */
+
+function adminPassword(): string {
+  const p = process.env.APPS_SCRIPT_ADMIN_PASSWORD;
+  if (!p) throw new Error("APPS_SCRIPT_ADMIN_PASSWORD is not configured");
+  return p;
+}
+
+// ---- Read clients (admin-gated where they expose PII) ----
+
+export interface MenuItem { id: string; name: string; visible?: boolean; price?: number | string; }
+export async function getMenuList(): Promise<{ success: boolean; items?: MenuItem[]; error?: string }> {
+  return appsScriptGet({ action: "getMenu" });
+}
+
+export interface PantryItem { id: string; name: string; visible?: boolean; }
+export async function getPantryList(): Promise<{ success: boolean; items?: PantryItem[]; error?: string }> {
+  return appsScriptGet({ action: "getPantry" });
+}
+
+export interface StockRow { id: string; name: string; qty?: number | string; unit?: string; }
+export async function getStockList(): Promise<{ success: boolean; items?: StockRow[]; error?: string }> {
+  return appsScriptGet({ action: "getStock", password: adminPassword() });
+}
+
+export interface AvailabilitySlot { slot: string; ordersLeft?: number; itemsLeft?: number; }
+export async function getAvailabilitySummary(slot?: string): Promise<{ success: boolean; slots?: AvailabilitySlot[]; error?: string }> {
+  return appsScriptGet({ action: "getAvailability", ...(slot ? { slot } : {}) });
+}
+
+export interface AdminOrder {
+  id: number | string; tracking_token: string; status: string; name: string; phone?: string;
+  order_total: number | string; order_summary: string; delivery_date: string; delivery_slot: string; created_at?: string;
+}
+export async function getOrdersList(range: "today" | "week" = "today"): Promise<{ success: boolean; orders?: AdminOrder[]; error?: string }> {
+  return appsScriptGet({ action: "getOrders", password: adminPassword(), range });
+}
+export async function getCrmOrdersList(range: "today" | "week" = "week"): Promise<{ success: boolean; orders?: AdminOrder[]; error?: string }> {
+  return appsScriptGet({ action: "getCRMOrders", password: adminPassword(), range });
+}
+
+export interface Contact { name: string; phone?: string; email?: string; orders?: number; }
+export async function getContactsList(query: string): Promise<{ success: boolean; contacts?: Contact[]; error?: string }> {
+  return appsScriptGet({ action: "getContacts", password: adminPassword(), q: query });
+}
+
+// ---- Mutate clients (always reached via the confirm gate) ----
+
+export async function toggleMenuVisibility(id: string, visible: boolean): Promise<{ success: boolean; error?: string }> {
+  return appsScriptGet({ action: "toggleVisibility", password: adminPassword(), id, visible: String(visible) });
+}
+export async function togglePantryVisibility(id: string, visible: boolean): Promise<{ success: boolean; error?: string }> {
+  return appsScriptGet({ action: "togglePantryVisibility", password: adminPassword(), id, visible: String(visible) });
+}
+export async function decideRequisition(id: string, decision: "approve" | "reject"): Promise<{ success: boolean; error?: string }> {
+  return appsScriptGet({
+    action: decision === "approve" ? "approveRequisition" : "rejectRequisition",
+    password: adminPassword(),
+    id,
+  });
+}
+
+export interface LogExpenseArgs { vendor: string; amountEgp: number; date?: string; category?: string; note?: string; }
+export async function logExpense(args: LogExpenseArgs): Promise<{ success: boolean; id?: string; error?: string }> {
+  const vendor = (args.vendor ?? "").trim();
+  if (!vendor) return { success: false, error: "vendor is required" };
+  if (!Number.isFinite(args.amountEgp) || args.amountEgp <= 0) return { success: false, error: "amount must be a positive number" };
+  return appsScriptGet({
+    action: "logExpense",
+    password: adminPassword(),
+    vendor,
+    amount: String(args.amountEgp),
+    date: args.date ?? "",
+    category: args.category ?? "other",
+    note: args.note ?? "",
+    source: "telegram-agent",
+  });
+}

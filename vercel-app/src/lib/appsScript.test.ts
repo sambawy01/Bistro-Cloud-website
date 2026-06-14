@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { placeOrder, setOrderStatusByToken, slaListActiveOrders, markSlaAlerted } from "./appsScript";
+import { getAvailabilitySummary, getOrdersList, getMenuList, logExpense } from "./appsScript";
 
 const ORIG = { ...process.env };
 
@@ -101,5 +102,71 @@ describe("markSlaAlerted", () => {
     const url = spy.mock.calls[0][0] as string;
     expect(url).toContain("action=markSlaAlerted");
     expect(url).toContain("token=tok-9");
+  });
+});
+
+describe("agent read clients", () => {
+  beforeEach(() => {
+    process.env.APPS_SCRIPT_URL = "https://script.example/exec";
+    process.env.APPS_SCRIPT_ADMIN_PASSWORD = "secret";
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("getMenuList calls action=getMenu and returns items", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ success: true, items: [{ id: "1", name: "Bone Broth", visible: true }] }), { status: 200 }),
+    );
+    const r = await getMenuList();
+    expect(r.success).toBe(true);
+    expect((spy.mock.calls[0][0] as string)).toContain("action=getMenu");
+  });
+
+  it("getOrdersList passes the admin password and a range param", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ success: true, orders: [] }), { status: 200 }),
+    );
+    await getOrdersList("today");
+    const url = spy.mock.calls[0][0] as string;
+    expect(url).toContain("action=getOrders");
+    expect(url).toContain("password=secret");
+    expect(url).toContain("range=today");
+  });
+
+  it("getAvailabilitySummary omits the slot param when none is given, includes it when provided", async () => {
+    // Fresh Response per call — a single Response instance can only be read once.
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () => new Response(JSON.stringify({ success: true, slots: [] }), { status: 200 }),
+    );
+    await getAvailabilitySummary();
+    expect(spy.mock.calls[0][0] as string).not.toContain("slot=");
+    await getAvailabilitySummary("14:00");
+    expect(spy.mock.calls[1][0] as string).toContain("slot=14");
+  });
+});
+
+describe("logExpense", () => {
+  beforeEach(() => {
+    process.env.APPS_SCRIPT_URL = "https://script.example/exec";
+    process.env.APPS_SCRIPT_ADMIN_PASSWORD = "secret";
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("validates required vendor+amount and forwards them", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ success: true, id: "exp-1" }), { status: 200 }),
+    );
+    const r = await logExpense({ vendor: "Metro", amountEgp: 540, date: "2026-06-14", category: "ingredients", note: "veg" });
+    expect(r.success).toBe(true);
+    const url = spy.mock.calls[0][0] as string;
+    expect(url).toContain("action=logExpense");
+    expect(url).toContain("vendor=Metro");
+    expect(url).toContain("amount=540");
+  });
+
+  it("rejects a missing amount without calling fetch", async () => {
+    const spy = vi.spyOn(globalThis, "fetch");
+    const r = await logExpense({ vendor: "Metro", amountEgp: NaN, date: "", category: "other", note: "" });
+    expect(r.success).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
   });
 });
