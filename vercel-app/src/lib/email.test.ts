@@ -233,4 +233,34 @@ describe("emailConfigured + sendEmail", () => {
     expect(r).toEqual({ ok: false, error: "no recipient" });
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it("sets a Message-ID header for a root email", async () => {
+    process.env.RESEND_API_KEY = "re_secret";
+    const spy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    await sendEmail("a@b.com", "s", "<p>h</p>", { threadToken: "tok-9", threadRole: "root" });
+    const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
+    expect(body.headers).toEqual({ "Message-ID": "<order-tok-9@bistro-cloud.com>" });
+  });
+
+  it("sets In-Reply-To + References headers for a reply email", async () => {
+    process.env.RESEND_API_KEY = "re_secret";
+    const spy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    await sendEmail("a@b.com", "s", "<p>h</p>", { threadToken: "tok-9", threadRole: "reply" });
+    const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
+    expect(body.headers).toEqual({
+      "In-Reply-To": "<order-tok-9@bistro-cloud.com>",
+      References: "<order-tok-9@bistro-cloud.com>",
+    });
+  });
+
+  it("sends NO headers field when no thread opts are given", async () => {
+    process.env.RESEND_API_KEY = "re_secret";
+    const spy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    await sendEmail("a@b.com", "s", "<p>h</p>");
+    const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
+    expect(body.headers).toBeUndefined();
+  });
 });

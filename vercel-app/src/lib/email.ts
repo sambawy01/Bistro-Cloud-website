@@ -212,6 +212,13 @@ export function declineEmail(o: DeclineEmailInput): BuiltEmail {
   };
 }
 
+export interface SendEmailOpts {
+  /** The order's tracking token, used to derive the thread Message-ID. */
+  threadToken?: string;
+  /** "root" → set Message-ID; "reply" → set In-Reply-To + References. */
+  threadRole?: "root" | "reply";
+}
+
 /**
  * Send an email via the Resend API. NEVER throws: returns {ok:false,error} on a
  * non-2xx response, a thrown fetch, or a missing API key. Callers treat the
@@ -221,10 +228,19 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
+  opts?: SendEmailOpts,
 ): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: "not configured" };
   if (!to) return { ok: false, error: "no recipient" };
+  let threadHeaders: Record<string, string> | undefined;
+  if (opts?.threadToken && opts.threadRole) {
+    const id = orderMessageId(opts.threadToken);
+    threadHeaders =
+      opts.threadRole === "root"
+        ? { "Message-ID": id }
+        : { "In-Reply-To": id, References: id };
+  }
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -238,6 +254,7 @@ export async function sendEmail(
         reply_to: REPLY_TO,
         subject,
         html,
+        ...(threadHeaders ? { headers: threadHeaders } : {}),
       }),
       signal: AbortSignal.timeout(15_000),
     });
