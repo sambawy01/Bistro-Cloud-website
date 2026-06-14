@@ -56,7 +56,10 @@ export async function runOrderSideEffects(order: ValidatedOrder, result: PlaceOr
         instapayDetails,
         trackingToken: result.trackingToken,
       });
-      const sent = await sendEmail(order.email, subject, html);
+      const sent = await sendEmail(order.email, subject, html, {
+        threadToken: result.trackingToken,
+        threadRole: "root",
+      });
       if (!sent.ok) console.error("[order] confirmation email failed (non-fatal):", sent.error);
     } catch (err) {
       console.error("[order] confirmation email threw (non-fatal):", err);
