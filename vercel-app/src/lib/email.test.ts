@@ -9,6 +9,10 @@ import {
   delayEmail,
   declineEmail,
   sendEmail,
+  orderMessageId,
+  ORDER_SUBJECT,
+  statusStepper,
+  isStepperStage,
 } from "./email";
 
 describe("escapeHtml", () => {
@@ -23,13 +27,15 @@ describe("escapeHtml", () => {
 });
 
 describe("wrap", () => {
-  it("wraps inner HTML in the branded shell with brand colors + footer link", () => {
+  it("wraps inner HTML in the branded shell with the logo + cream header + footer", () => {
     const html = wrap("<p>hi</p>");
     expect(html).toContain("<p>hi</p>");
-    expect(html).toContain("Bistro Cloud");
-    expect(html).toContain("#2C3E50"); // header
-    expect(html).toContain("#F9F5F0"); // background
-    expect(html).toContain('href="https://bistro-cloud.com"');
+    expect(html).toContain('src="https://bistro-cloud.com/email-logo.png"'); // logo
+    expect(html).toContain('alt="Bistro Cloud"');
+    expect(html).toContain("#F9F5F0"); // cream header/background
+    expect(html).toContain("Fresh. Natural. Delivered Daily."); // tagline
+    expect(html).toContain('href="https://bistro-cloud.com"'); // footer link
+    expect(html).not.toContain("#2C3E50"); // navy is gone from the shell; heading styles inside content still use #2C3E50
   });
 });
 
@@ -56,7 +62,8 @@ describe("confirmationEmail", () => {
     expect(html).toContain("2:30 PM"); // 14:30 → 2:30 PM
     expect(html).toContain("https://bistro-cloud.com/track?token=tok-9");
     expect(html).toContain("Track your order");
-    expect(subject).toBe("Bistro Cloud — order confirmed for 2:30 PM");
+    expect(subject).toBe("Bistro Cloud — your order");
+    expect(html).toContain("Being prepared"); // status stepper present
   });
 
   it("shows a payment line for the method", () => {
@@ -96,21 +103,22 @@ describe("statusEmail", () => {
 
   it("renders the preparing copy + slot label + track button", () => {
     const { subject, html } = statusEmail("preparing", o);
-    expect(subject).toBe("Your Bistro Cloud order is being prepared");
+    expect(subject).toBe("Bistro Cloud — your order");
     expect(html).toContain("The kitchen is on it!");
     expect(html).toContain("9:05 AM");
     expect(html).toContain("track?token=t1");
+    expect(html).toContain("Out for delivery"); // stepper labels present
   });
 
   it("renders out_for_delivery copy", () => {
     const { subject, html } = statusEmail("out_for_delivery", o);
-    expect(subject).toBe("Your Bistro Cloud order is out for delivery");
+    expect(subject).toBe("Bistro Cloud — your order");
     expect(html).toContain("On the way!");
   });
 
   it("renders delivered copy", () => {
     const { subject, html } = statusEmail("delivered", o);
-    expect(subject).toBe("Your Bistro Cloud order has been delivered");
+    expect(subject).toBe("Bistro Cloud — your order");
     expect(html).toContain("Enjoy your meal!");
   });
 });
@@ -123,11 +131,25 @@ describe("delayEmail", () => {
       newLabel: "3:00 PM",
       trackingToken: "t2",
     });
-    expect(subject).toBe("Bistro Cloud — updated delivery time");
+    expect(subject).toBe("Bistro Cloud — your order");
     expect(html).toContain("running a little late");
     expect(html).toContain("3:00 PM");
     expect(html).toContain("was 2:30 PM");
     expect(html).toContain("track?token=t2");
+  });
+
+  it("renders the stepper at the given current stage, and omits it when absent", () => {
+    const withStage = delayEmail({
+      name: "Sara", oldLabel: "2:30 PM", newLabel: "3:00 PM",
+      trackingToken: "t2", currentStage: "preparing",
+    });
+    expect(withStage.html).toContain("Being prepared");
+    expect(withStage.html).toContain("Out for delivery");
+
+    const noStage = delayEmail({
+      name: "Sara", oldLabel: "2:30 PM", newLabel: "3:00 PM", trackingToken: "t2",
+    });
+    expect(noStage.html).not.toContain("Out for delivery"); // no stepper without a stage
   });
 });
 
@@ -148,6 +170,56 @@ describe("declineEmail", () => {
     const { subject, html } = declineEmail({ name: "Sara", deliverySlot: "14:30" });
     expect(subject).toBe("Bistro Cloud — we couldn't fit your order in today");
     expect(html).toContain("no more delivery times are available today");
+  });
+});
+
+describe("orderMessageId", () => {
+  it("builds a deterministic RFC Message-ID from the token", () => {
+    expect(orderMessageId("tok-9")).toBe("<order-tok-9@bistro-cloud.com>");
+  });
+});
+
+describe("ORDER_SUBJECT", () => {
+  it("is the single constant lifecycle subject", () => {
+    expect(ORDER_SUBJECT).toBe("Bistro Cloud — your order");
+  });
+});
+
+describe("statusStepper", () => {
+  it("marks the current step and completes prior steps", () => {
+    const html = statusStepper("out_for_delivery");
+    // All four labels present
+    expect(html).toContain("Confirmed");
+    expect(html).toContain("Being prepared");
+    expect(html).toContain("Out for delivery");
+    expect(html).toContain("Delivered");
+    // Two prior steps are checked, current is the dot, future is the hollow ring
+    expect((html.match(/✓/g) || []).length).toBe(2); // confirmed + preparing done
+    expect(html).toContain("●"); // out_for_delivery current
+    expect(html).toContain("○"); // delivered future
+  });
+
+  it("at 'confirmed' nothing is checked yet and confirmed is current", () => {
+    const html = statusStepper("confirmed");
+    expect((html.match(/✓/g) || []).length).toBe(0);
+    expect((html.match(/○/g) || []).length).toBe(3); // 3 future steps
+    expect(html).toContain("●");
+  });
+
+  it("at 'delivered' all prior steps are checked", () => {
+    const html = statusStepper("delivered");
+    expect((html.match(/✓/g) || []).length).toBe(3);
+    expect((html.match(/○/g) || []).length).toBe(0);
+  });
+});
+
+describe("isStepperStage", () => {
+  it("accepts the 4 stepper stages and rejects others", () => {
+    expect(isStepperStage("confirmed")).toBe(true);
+    expect(isStepperStage("out_for_delivery")).toBe(true);
+    expect(isStepperStage("delivered")).toBe(true);
+    expect(isStepperStage("pending_approval")).toBe(false);
+    expect(isStepperStage("declined")).toBe(false);
   });
 });
 
@@ -218,5 +290,44 @@ describe("emailConfigured + sendEmail", () => {
     const r = await sendEmail("", "s", "<p>h</p>");
     expect(r).toEqual({ ok: false, error: "no recipient" });
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("sets a Message-ID header for a root email", async () => {
+    process.env.RESEND_API_KEY = "re_secret";
+    const spy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    await sendEmail("a@b.com", "s", "<p>h</p>", { threadToken: "tok-9", threadRole: "root" });
+    const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
+    expect(body.headers).toEqual({ "Message-ID": "<order-tok-9@bistro-cloud.com>" });
+  });
+
+  it("sets In-Reply-To + References headers for a reply email", async () => {
+    process.env.RESEND_API_KEY = "re_secret";
+    const spy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    await sendEmail("a@b.com", "s", "<p>h</p>", { threadToken: "tok-9", threadRole: "reply" });
+    const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
+    expect(body.headers).toEqual({
+      "In-Reply-To": "<order-tok-9@bistro-cloud.com>",
+      References: "<order-tok-9@bistro-cloud.com>",
+    });
+  });
+
+  it("sends NO headers field when no thread opts are given", async () => {
+    process.env.RESEND_API_KEY = "re_secret";
+    const spy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    await sendEmail("a@b.com", "s", "<p>h</p>");
+    const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
+    expect(body.headers).toBeUndefined();
+  });
+
+  it("omits threading headers when the token is not a safe token (injection guard)", async () => {
+    process.env.RESEND_API_KEY = "re_secret";
+    const spy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    await sendEmail("a@b.com", "s", "<p>h</p>", { threadToken: "abc\r\nBcc: evil@x.com", threadRole: "root" });
+    const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
+    expect(body.headers).toBeUndefined();
   });
 });

@@ -31,6 +31,7 @@ vi.mock("@/lib/email", () => ({
   declineEmail: vi.fn(() => ({ subject: "decline-subject", html: "<p>decline</p>" })),
   delayEmail: vi.fn(() => ({ subject: "delay-subject", html: "<p>delay</p>" })),
   sendEmail: vi.fn(async () => ({ ok: true })),
+  isStepperStage: (s: string) => ["confirmed", "preparing", "out_for_delivery", "delivered"].includes(s),
 }));
 vi.mock("@/lib/telegram", () => ({
   answerCallbackQuery: vi.fn(async () => ({ ok: true, status: 200 })),
@@ -269,7 +270,10 @@ describe("POST /api/telegram/webhook — customer emails", () => {
       "preparing",
       expect.objectContaining({ name: "Sara Ali", deliverySlot: "14:30", trackingToken: "tok-p" }),
     );
-    expect(sendEmail).toHaveBeenCalledWith("sara@example.com", "status-subject", "<p>status</p>");
+    expect(sendEmail).toHaveBeenCalledWith(
+      "sara@example.com", "status-subject", "<p>status</p>",
+      expect.objectContaining({ threadToken: "tok-p", threadRole: "reply" }),
+    );
   });
 
   it("an 'otd' advance sends an out_for_delivery status email", async () => {
@@ -310,9 +314,18 @@ describe("POST /api/telegram/webhook — customer emails", () => {
     expect(sendEmail).not.toHaveBeenCalled(); // deferred
     await flushAfter();
     expect(delayEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Sara Ali", oldLabel: "2:30 PM", newLabel: "3:00 PM", trackingToken: "tok-d" }),
+      expect.objectContaining({
+        name: "Sara Ali",
+        oldLabel: "2:30 PM",
+        newLabel: "3:00 PM",
+        trackingToken: "tok-d",
+        currentStage: "confirmed",
+      }),
     );
-    expect(sendEmail).toHaveBeenCalledWith("sara@example.com", "delay-subject", "<p>delay</p>");
+    expect(sendEmail).toHaveBeenCalledWith(
+      "sara@example.com", "delay-subject", "<p>delay</p>",
+      expect.objectContaining({ threadToken: "tok-d", threadRole: "reply" }),
+    );
   });
 
   it("a failed delayOrder sends NO delay email", async () => {
@@ -358,7 +371,10 @@ describe("POST /api/telegram/webhook — customer emails", () => {
         trackingToken: "tok-conf",
       }),
     );
-    expect(sendEmail).toHaveBeenCalledWith("sara@example.com", "confirm-subject", "<p>confirm</p>");
+    expect(sendEmail).toHaveBeenCalledWith(
+      "sara@example.com", "confirm-subject", "<p>confirm</p>",
+      expect.objectContaining({ threadToken: "tok-conf", threadRole: "root" }),
+    );
   });
 
   it("a re-tap (previousStatus already 'confirmed') does NOT resend the confirmation email", async () => {

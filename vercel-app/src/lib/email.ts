@@ -20,6 +20,17 @@ import type { PaymentMethod } from "./validation";
 const FROM = "Bistro Cloud <orders@bistro-cloud.com>";
 const REPLY_TO = "bistrocloud3@gmail.com";
 
+/** The single subject shared by every lifecycle email of one order, so clients
+ * that thread by subject also group them. Decline keeps its own subject. */
+export const ORDER_SUBJECT = "Bistro Cloud — your order";
+
+/** Deterministic RFC Message-ID for an order, derived from its tracking token.
+ * The first email of an order sends with this as Message-ID; later emails set
+ * In-Reply-To/References to it so they thread under the original. */
+export function orderMessageId(token: string): string {
+  return `<order-${token}@bistro-cloud.com>`;
+}
+
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cod: "Cash on delivery",
   card_on_delivery: "Card on delivery (POS)",
@@ -40,19 +51,19 @@ export function escapeHtml(s: string | number | null | undefined): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Port of the Apps Script bistroEmailWrap — the branded header/body/footer shell. */
+/** The branded header/body/footer shell — cream header with the logo image. */
 export function wrap(innerHtml: string): string {
   return (
     '<div style="font-family: Helvetica Neue, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F9F5F0;">' +
-    '<div style="background: #2C3E50; padding: 30px; text-align: center;">' +
-    '<h1 style="color: white; margin: 0; font-size: 24px;">Bistro Cloud</h1>' +
-    '<p style="color: #bdc3c7; margin: 5px 0 0; font-size: 14px;">Fresh. Natural. Delivered Daily.</p>' +
+    '<div style="background: #F9F5F0; padding: 28px 30px 20px; text-align: center;">' +
+    '<img src="https://bistro-cloud.com/email-logo.png" width="160" alt="Bistro Cloud" style="display:inline-block; width:160px; max-width:160px; height:auto;">' +
+    '<p style="color: #888; margin: 12px 0 0; font-size: 13px; letter-spacing: 0.4px;">Fresh. Natural. Delivered Daily.</p>' +
     "</div>" +
     '<div style="padding: 30px; background: white;">' +
     innerHtml +
     "</div>" +
     '<div style="padding: 20px 30px; text-align: center; border-top: 1px solid #eee;">' +
-    '<p style="color: #999; font-size: 12px; margin: 0;">Bistro Cloud El Gouna - 100% Natural Ingredients - Free Delivery<br>' +
+    '<p style="color: #999; font-size: 12px; margin: 0;">Bistro Cloud El Gouna &middot; 100% Natural Ingredients &middot; Free Delivery<br>' +
     '<a href="https://bistro-cloud.com" style="color: #D94E28; text-decoration: none;">bistro-cloud.com</a></p>' +
     "</div>" +
     "</div>"
@@ -70,6 +81,44 @@ function trackButton(token: string): string {
     '<div style="text-align: center; margin: 25px 0;">' +
     `<a href="${trackingUrl(token)}" style="display: inline-block; background: #D94E28; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold;">Track your order</a>` +
     "</div>"
+  );
+}
+
+export type StepperStage = "confirmed" | "preparing" | "out_for_delivery" | "delivered";
+
+const STEPPER_STEPS: { key: StepperStage; label: string }[] = [
+  { key: "confirmed", label: "Confirmed" },
+  { key: "preparing", label: "Being prepared" },
+  { key: "out_for_delivery", label: "Out for delivery" },
+  { key: "delivered", label: "Delivered" },
+];
+
+/** True when an arbitrary status string is one of the 4 stepper stages. */
+export function isStepperStage(s: string): s is StepperStage {
+  return STEPPER_STEPS.some((step) => step.key === s);
+}
+
+/** A 4-step status bar mirroring the /track page. Completed steps show ✓ (orange),
+ * the current step ● (orange, bold), future steps ○ (gray). Table-based for Outlook. */
+export function statusStepper(current: StepperStage): string {
+  const currentIndex = STEPPER_STEPS.findIndex((s) => s.key === current);
+  const cells = STEPPER_STEPS.map((step, i) => {
+    const done = i < currentIndex;
+    const active = i === currentIndex;
+    const marker = done ? "✓" : active ? "●" : "○";
+    const markerColor = done || active ? "#D94E28" : "#cfcfcf";
+    const labelColor = done || active ? "#333" : "#aaa";
+    const weight = active ? "bold" : "normal";
+    return (
+      '<td style="text-align:center; vertical-align:top; width:25%; padding:0 4px;">' +
+      `<div style="font-size:18px; line-height:1; color:${markerColor};">${marker}</div>` +
+      `<div style="font-size:11px; margin-top:6px; color:${labelColor}; font-weight:${weight};">${step.label}</div>` +
+      "</td>"
+    );
+  }).join("");
+  return (
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;">' +
+    `<tr>${cells}</tr></table>`
   );
 }
 
@@ -93,6 +142,7 @@ export function confirmationEmail(o: ConfirmationEmailInput): BuiltEmail {
   const label = slotLabel(o.deliverySlot);
   let inner =
     `<h2 style="color: #2C3E50; margin-top: 0;">Order confirmed, ${escapeHtml(o.name)}!</h2>` +
+    statusStepper("confirmed") +
     `<p style="color: #555; line-height: 1.6;">Your delivery is scheduled for <strong>today at ${escapeHtml(label)}</strong>.</p>` +
     '<div style="background: #F9F5F0; border-radius: 12px; padding: 20px; margin: 20px 0;">' +
     `<p style="color: #333; margin: 0; white-space: pre-line;">${escapeHtml(o.orderSummary)}</p>` +
@@ -113,26 +163,23 @@ export function confirmationEmail(o: ConfirmationEmailInput): BuiltEmail {
   inner += trackButton(o.trackingToken);
 
   return {
-    subject: `Bistro Cloud — order confirmed for ${label}`,
+    subject: ORDER_SUBJECT,
     html: wrap(inner),
   };
 }
 
 export type StatusEmailStatus = "preparing" | "out_for_delivery" | "delivered";
 
-const STATUS_EMAIL_COPY: Record<StatusEmailStatus, { subject: string; heading: string; body: string }> = {
+const STATUS_EMAIL_COPY: Record<StatusEmailStatus, { heading: string; body: string }> = {
   preparing: {
-    subject: "Your Bistro Cloud order is being prepared",
     heading: "The kitchen is on it!",
     body: "Your order is being freshly prepared right now.",
   },
   out_for_delivery: {
-    subject: "Your Bistro Cloud order is out for delivery",
     heading: "On the way!",
     body: "Your order has left the kitchen and is on its way to you.",
   },
   delivered: {
-    subject: "Your Bistro Cloud order has been delivered",
     heading: "Enjoy your meal!",
     body: "Your order has been delivered. Thank you for ordering with Bistro Cloud!",
   },
@@ -149,10 +196,11 @@ export function statusEmail(status: StatusEmailStatus, o: StatusEmailInput): Bui
   const copy = STATUS_EMAIL_COPY[status];
   const inner =
     `<h2 style="color: #2C3E50; margin-top: 0;">${copy.heading}</h2>` +
+    statusStepper(status) +
     `<p style="color: #555; line-height: 1.6;">${copy.body}</p>` +
     `<p style="color: #555; line-height: 1.6;">Scheduled time: <strong>${escapeHtml(slotLabel(o.deliverySlot))}</strong></p>` +
     trackButton(o.trackingToken);
-  return { subject: copy.subject, html: wrap(inner) };
+  return { subject: ORDER_SUBJECT, html: wrap(inner) };
 }
 
 export interface DelayEmailInput {
@@ -160,6 +208,8 @@ export interface DelayEmailInput {
   oldLabel: string;
   newLabel: string;
   trackingToken: string;
+  /** Order's current pipeline stage, used to render the stepper. Omit to skip it. */
+  currentStage?: StepperStage;
 }
 
 /** "Running late" / new-ETA email (port of sendDelayEmail). oldLabel/newLabel
@@ -167,9 +217,10 @@ export interface DelayEmailInput {
 export function delayEmail(o: DelayEmailInput): BuiltEmail {
   const inner =
     '<h2 style="color: #2C3E50; margin-top: 0;">Your order is running a little late</h2>' +
+    (o.currentStage ? statusStepper(o.currentStage) : "") +
     `<p style="color: #555; line-height: 1.6;">New estimated delivery: <b>${escapeHtml(o.newLabel)}</b> (was ${escapeHtml(o.oldLabel)}). Thanks for your patience!</p>` +
     trackButton(o.trackingToken);
-  return { subject: "Bistro Cloud — updated delivery time", html: wrap(inner) };
+  return { subject: ORDER_SUBJECT, html: wrap(inner) };
 }
 
 export interface DeclineEmailInput {
@@ -201,6 +252,13 @@ export function declineEmail(o: DeclineEmailInput): BuiltEmail {
   };
 }
 
+export interface SendEmailOpts {
+  /** The order's tracking token, used to derive the thread Message-ID. */
+  threadToken?: string;
+  /** "root" → set Message-ID; "reply" → set In-Reply-To + References. */
+  threadRole?: "root" | "reply";
+}
+
 /**
  * Send an email via the Resend API. NEVER throws: returns {ok:false,error} on a
  * non-2xx response, a thrown fetch, or a missing API key. Callers treat the
@@ -210,10 +268,21 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
+  opts?: SendEmailOpts,
 ): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: "not configured" };
   if (!to) return { ok: false, error: "no recipient" };
+  let threadHeaders: Record<string, string> | undefined;
+  // Only emit threading headers for safe, server-generated tokens (UUIDs).
+  // Guards the header sink against CRLF/`>` injection if a malformed token ever appears.
+  if (opts?.threadToken && opts.threadRole && /^[A-Za-z0-9_-]+$/.test(opts.threadToken)) {
+    const id = orderMessageId(opts.threadToken);
+    threadHeaders =
+      opts.threadRole === "root"
+        ? { "Message-ID": id }
+        : { "In-Reply-To": id, References: id };
+  }
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -227,6 +296,7 @@ export async function sendEmail(
         reply_to: REPLY_TO,
         subject,
         html,
+        ...(threadHeaders ? { headers: threadHeaders } : {}),
       }),
       signal: AbortSignal.timeout(15_000),
     });

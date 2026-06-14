@@ -4,7 +4,7 @@ import { setOrderStatusByToken, getOrderStatus, delayOrder, type OrderStatus } f
 import { answerCallbackQuery, editMessageText, editMessageReplyMarkup, sendMessage, type InlineKeyboard } from "@/lib/telegram";
 import { actionToStatus, keyboardForStatus, delayKeyboard, delayActionMinutes } from "@/lib/orderMessage";
 import { loyverseConfigured, pushReceipt, parseOrderSummary, type LoyverseOrder } from "@/lib/loyverse";
-import { confirmationEmail, statusEmail, declineEmail, delayEmail, sendEmail, type StatusEmailStatus } from "@/lib/email";
+import { confirmationEmail, statusEmail, declineEmail, delayEmail, sendEmail, isStepperStage, type StatusEmailStatus } from "@/lib/email";
 import type { PaymentMethod } from "@/lib/validation";
 
 const PAYMENT_METHODS: LoyverseOrder["paymentMethod"][] = ["cod", "card_on_delivery", "instapay"];
@@ -101,7 +101,7 @@ async function sendStatusEmailByToken(token: string, status: StatusEmailStatus):
       deliverySlot: o.deliverySlot,
       trackingToken: token,
     });
-    const sent = await sendEmail(o.email, subject, html);
+    const sent = await sendEmail(o.email, subject, html, { threadToken: token, threadRole: "reply" });
     if (!sent.ok) console.error("[webhook] status email failed (non-fatal):", sent.error);
   } catch (err) {
     console.error("[webhook] status email threw (non-fatal):", err);
@@ -136,8 +136,9 @@ async function sendDelayEmailByToken(token: string, oldLabel: string, newLabel: 
       console.error("[webhook] delay email: no order/email for", token, detail.error);
       return;
     }
-    const { subject, html } = delayEmail({ name: o.name, oldLabel, newLabel, trackingToken: token });
-    const sent = await sendEmail(o.email, subject, html);
+    const currentStage = isStepperStage(o.status) ? o.status : undefined;
+    const { subject, html } = delayEmail({ name: o.name, oldLabel, newLabel, trackingToken: token, currentStage });
+    const sent = await sendEmail(o.email, subject, html, { threadToken: token, threadRole: "reply" });
     if (!sent.ok) console.error("[webhook] delay email failed (non-fatal):", sent.error);
   } catch (err) {
     console.error("[webhook] delay email threw (non-fatal):", err);
@@ -170,7 +171,7 @@ async function sendConfirmationEmailByToken(token: string): Promise<void> {
       instapayDetails: pm === "instapay" ? (process.env.INSTAPAY_DETAILS || "") : undefined,
       trackingToken: token,
     });
-    const sent = await sendEmail(o.email, subject, html);
+    const sent = await sendEmail(o.email, subject, html, { threadToken: token, threadRole: "root" });
     if (!sent.ok) console.error("[webhook] confirmation email failed (non-fatal):", sent.error);
   } catch (err) {
     console.error("[webhook] confirmation email threw (non-fatal):", err);

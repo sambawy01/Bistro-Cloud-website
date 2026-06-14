@@ -222,7 +222,12 @@ describe("runOrderSideEffects (deferred work)", () => {
       }),
     );
     expect(sendEmail).toHaveBeenCalledOnce();
-    expect(sendEmail).toHaveBeenCalledWith("sara@example.com", "Bistro Cloud — order confirmed", "<p>confirm</p>");
+    expect(sendEmail).toHaveBeenCalledWith(
+      "sara@example.com",
+      "Bistro Cloud — order confirmed",
+      "<p>confirm</p>",
+      expect.objectContaining({ threadToken: "tok-1", threadRole: "root" }),
+    );
   });
 
   it("does NOT send a confirmation email for a pending_approval order", async () => {
