@@ -84,6 +84,39 @@ function trackButton(token: string): string {
   );
 }
 
+export type StepperStage = "confirmed" | "preparing" | "out_for_delivery" | "delivered";
+
+const STEPPER_STEPS: { key: StepperStage; label: string }[] = [
+  { key: "confirmed", label: "Confirmed" },
+  { key: "preparing", label: "Being prepared" },
+  { key: "out_for_delivery", label: "Out for delivery" },
+  { key: "delivered", label: "Delivered" },
+];
+
+/** A 4-step status bar mirroring the /track page. Completed steps show ✓ (orange),
+ * the current step ● (orange, bold), future steps ○ (gray). Table-based for Outlook. */
+export function statusStepper(current: StepperStage): string {
+  const currentIndex = STEPPER_STEPS.findIndex((s) => s.key === current);
+  const cells = STEPPER_STEPS.map((step, i) => {
+    const done = i < currentIndex;
+    const active = i === currentIndex;
+    const marker = done ? "✓" : active ? "●" : "○";
+    const markerColor = done || active ? "#D94E28" : "#cfcfcf";
+    const labelColor = done || active ? "#333" : "#aaa";
+    const weight = active ? "bold" : "normal";
+    return (
+      '<td style="text-align:center; vertical-align:top; width:25%; padding:0 4px;">' +
+      `<div style="font-size:18px; line-height:1; color:${markerColor};">${marker}</div>` +
+      `<div style="font-size:11px; margin-top:6px; color:${labelColor}; font-weight:${weight};">${step.label}</div>` +
+      "</td>"
+    );
+  }).join("");
+  return (
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;">' +
+    `<tr>${cells}</tr></table>`
+  );
+}
+
 export interface BuiltEmail {
   subject: string;
   html: string;

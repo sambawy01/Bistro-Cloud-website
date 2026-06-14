@@ -11,6 +11,7 @@ import {
   sendEmail,
   orderMessageId,
   ORDER_SUBJECT,
+  statusStepper,
 } from "./email";
 
 describe("escapeHtml", () => {
@@ -162,6 +163,34 @@ describe("orderMessageId", () => {
 describe("ORDER_SUBJECT", () => {
   it("is the single constant lifecycle subject", () => {
     expect(ORDER_SUBJECT).toBe("Bistro Cloud — your order");
+  });
+});
+
+describe("statusStepper", () => {
+  it("marks the current step and completes prior steps", () => {
+    const html = statusStepper("out_for_delivery");
+    // All four labels present
+    expect(html).toContain("Confirmed");
+    expect(html).toContain("Being prepared");
+    expect(html).toContain("Out for delivery");
+    expect(html).toContain("Delivered");
+    // Two prior steps are checked, current is the dot, future is the hollow ring
+    expect((html.match(/✓/g) || []).length).toBe(2); // confirmed + preparing done
+    expect(html).toContain("●"); // out_for_delivery current
+    expect(html).toContain("○"); // delivered future
+  });
+
+  it("at 'confirmed' nothing is checked yet and confirmed is current", () => {
+    const html = statusStepper("confirmed");
+    expect((html.match(/✓/g) || []).length).toBe(0);
+    expect((html.match(/○/g) || []).length).toBe(3); // 3 future steps
+    expect(html).toContain("●");
+  });
+
+  it("at 'delivered' all prior steps are checked", () => {
+    const html = statusStepper("delivered");
+    expect((html.match(/✓/g) || []).length).toBe(3);
+    expect((html.match(/○/g) || []).length).toBe(0);
   });
 });
 
