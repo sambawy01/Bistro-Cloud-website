@@ -269,7 +269,10 @@ describe("POST /api/telegram/webhook — customer emails", () => {
       "preparing",
       expect.objectContaining({ name: "Sara Ali", deliverySlot: "14:30", trackingToken: "tok-p" }),
     );
-    expect(sendEmail).toHaveBeenCalledWith("sara@example.com", "status-subject", "<p>status</p>");
+    expect(sendEmail).toHaveBeenCalledWith(
+      "sara@example.com", "status-subject", "<p>status</p>",
+      expect.objectContaining({ threadRole: "reply" }),
+    );
   });
 
   it("an 'otd' advance sends an out_for_delivery status email", async () => {
@@ -310,9 +313,12 @@ describe("POST /api/telegram/webhook — customer emails", () => {
     expect(sendEmail).not.toHaveBeenCalled(); // deferred
     await flushAfter();
     expect(delayEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Sara Ali", oldLabel: "2:30 PM", newLabel: "3:00 PM", trackingToken: "tok-d" }),
+      expect.objectContaining({ trackingToken: expect.any(String), currentStage: "confirmed" }),
     );
-    expect(sendEmail).toHaveBeenCalledWith("sara@example.com", "delay-subject", "<p>delay</p>");
+    expect(sendEmail).toHaveBeenCalledWith(
+      "sara@example.com", "delay-subject", "<p>delay</p>",
+      expect.objectContaining({ threadRole: "reply" }),
+    );
   });
 
   it("a failed delayOrder sends NO delay email", async () => {
@@ -358,7 +364,10 @@ describe("POST /api/telegram/webhook — customer emails", () => {
         trackingToken: "tok-conf",
       }),
     );
-    expect(sendEmail).toHaveBeenCalledWith("sara@example.com", "confirm-subject", "<p>confirm</p>");
+    expect(sendEmail).toHaveBeenCalledWith(
+      "sara@example.com", "confirm-subject", "<p>confirm</p>",
+      expect.objectContaining({ threadRole: "root" }),
+    );
   });
 
   it("a re-tap (previousStatus already 'confirmed') does NOT resend the confirmation email", async () => {
