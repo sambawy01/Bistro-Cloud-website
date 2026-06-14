@@ -194,10 +194,11 @@ export function statusEmail(status: StatusEmailStatus, o: StatusEmailInput): Bui
   const copy = STATUS_EMAIL_COPY[status];
   const inner =
     `<h2 style="color: #2C3E50; margin-top: 0;">${copy.heading}</h2>` +
+    statusStepper(status) +
     `<p style="color: #555; line-height: 1.6;">${copy.body}</p>` +
     `<p style="color: #555; line-height: 1.6;">Scheduled time: <strong>${escapeHtml(slotLabel(o.deliverySlot))}</strong></p>` +
     trackButton(o.trackingToken);
-  return { subject: copy.subject, html: wrap(inner) };
+  return { subject: ORDER_SUBJECT, html: wrap(inner) };
 }
 
 export interface DelayEmailInput {

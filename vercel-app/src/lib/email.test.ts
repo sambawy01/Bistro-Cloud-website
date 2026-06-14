@@ -102,21 +102,22 @@ describe("statusEmail", () => {
 
   it("renders the preparing copy + slot label + track button", () => {
     const { subject, html } = statusEmail("preparing", o);
-    expect(subject).toBe("Your Bistro Cloud order is being prepared");
+    expect(subject).toBe("Bistro Cloud — your order");
     expect(html).toContain("The kitchen is on it!");
     expect(html).toContain("9:05 AM");
     expect(html).toContain("track?token=t1");
+    expect(html).toContain("Out for delivery"); // stepper labels present
   });
 
   it("renders out_for_delivery copy", () => {
     const { subject, html } = statusEmail("out_for_delivery", o);
-    expect(subject).toBe("Your Bistro Cloud order is out for delivery");
+    expect(subject).toBe("Bistro Cloud — your order");
     expect(html).toContain("On the way!");
   });
 
   it("renders delivered copy", () => {
     const { subject, html } = statusEmail("delivered", o);
-    expect(subject).toBe("Your Bistro Cloud order has been delivered");
+    expect(subject).toBe("Bistro Cloud — your order");
     expect(html).toContain("Enjoy your meal!");
   });
 });
