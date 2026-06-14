@@ -26,13 +26,15 @@ describe("escapeHtml", () => {
 });
 
 describe("wrap", () => {
-  it("wraps inner HTML in the branded shell with brand colors + footer link", () => {
+  it("wraps inner HTML in the branded shell with the logo + cream header + footer", () => {
     const html = wrap("<p>hi</p>");
     expect(html).toContain("<p>hi</p>");
-    expect(html).toContain("Bistro Cloud");
-    expect(html).toContain("#2C3E50"); // header
-    expect(html).toContain("#F9F5F0"); // background
-    expect(html).toContain('href="https://bistro-cloud.com"');
+    expect(html).toContain('src="https://bistro-cloud.com/email-logo.png"'); // logo
+    expect(html).toContain('alt="Bistro Cloud"');
+    expect(html).toContain("#F9F5F0"); // cream header/background
+    expect(html).toContain("Fresh. Natural. Delivered Daily."); // tagline
+    expect(html).toContain('href="https://bistro-cloud.com"'); // footer link
+    expect(html).not.toContain("#2C3E50"); // navy header is gone from the shell
   });
 });
 

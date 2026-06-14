@@ -51,19 +51,19 @@ export function escapeHtml(s: string | number | null | undefined): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Port of the Apps Script bistroEmailWrap — the branded header/body/footer shell. */
+/** The branded header/body/footer shell — cream header with the logo image. */
 export function wrap(innerHtml: string): string {
   return (
     '<div style="font-family: Helvetica Neue, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F9F5F0;">' +
-    '<div style="background: #2C3E50; padding: 30px; text-align: center;">' +
-    '<h1 style="color: white; margin: 0; font-size: 24px;">Bistro Cloud</h1>' +
-    '<p style="color: #bdc3c7; margin: 5px 0 0; font-size: 14px;">Fresh. Natural. Delivered Daily.</p>' +
+    '<div style="background: #F9F5F0; padding: 28px 30px 20px; text-align: center;">' +
+    '<img src="https://bistro-cloud.com/email-logo.png" width="160" alt="Bistro Cloud" style="display:inline-block; width:160px; max-width:160px; height:auto;">' +
+    '<p style="color: #888; margin: 12px 0 0; font-size: 13px; letter-spacing: 0.4px;">Fresh. Natural. Delivered Daily.</p>' +
     "</div>" +
     '<div style="padding: 30px; background: white;">' +
     innerHtml +
     "</div>" +
     '<div style="padding: 20px 30px; text-align: center; border-top: 1px solid #eee;">' +
-    '<p style="color: #999; font-size: 12px; margin: 0;">Bistro Cloud El Gouna - 100% Natural Ingredients - Free Delivery<br>' +
+    '<p style="color: #999; font-size: 12px; margin: 0;">Bistro Cloud El Gouna &middot; 100% Natural Ingredients &middot; Free Delivery<br>' +
     '<a href="https://bistro-cloud.com" style="color: #D94E28; text-decoration: none;">bistro-cloud.com</a></p>' +
     "</div>" +
     "</div>"
