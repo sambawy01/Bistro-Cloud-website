@@ -274,7 +274,9 @@ export async function sendEmail(
   if (!key) return { ok: false, error: "not configured" };
   if (!to) return { ok: false, error: "no recipient" };
   let threadHeaders: Record<string, string> | undefined;
-  if (opts?.threadToken && opts.threadRole) {
+  // Only emit threading headers for safe, server-generated tokens (UUIDs).
+  // Guards the header sink against CRLF/`>` injection if a malformed token ever appears.
+  if (opts?.threadToken && opts.threadRole && /^[A-Za-z0-9_-]+$/.test(opts.threadToken)) {
     const id = orderMessageId(opts.threadToken);
     threadHeaders =
       opts.threadRole === "root"

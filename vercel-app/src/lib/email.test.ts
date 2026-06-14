@@ -321,4 +321,13 @@ describe("emailConfigured + sendEmail", () => {
     const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
     expect(body.headers).toBeUndefined();
   });
+
+  it("omits threading headers when the token is not a safe token (injection guard)", async () => {
+    process.env.RESEND_API_KEY = "re_secret";
+    const spy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    await sendEmail("a@b.com", "s", "<p>h</p>", { threadToken: "abc\r\nBcc: evil@x.com", threadRole: "root" });
+    const body = JSON.parse((spy.mock.calls[0] as any)[1].body);
+    expect(body.headers).toBeUndefined();
+  });
 });
