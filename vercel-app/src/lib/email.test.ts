@@ -130,11 +130,25 @@ describe("delayEmail", () => {
       newLabel: "3:00 PM",
       trackingToken: "t2",
     });
-    expect(subject).toBe("Bistro Cloud — updated delivery time");
+    expect(subject).toBe("Bistro Cloud — your order");
     expect(html).toContain("running a little late");
     expect(html).toContain("3:00 PM");
     expect(html).toContain("was 2:30 PM");
     expect(html).toContain("track?token=t2");
+  });
+
+  it("renders the stepper at the given current stage, and omits it when absent", () => {
+    const withStage = delayEmail({
+      name: "Sara", oldLabel: "2:30 PM", newLabel: "3:00 PM",
+      trackingToken: "t2", currentStage: "preparing",
+    });
+    expect(withStage.html).toContain("Being prepared");
+    expect(withStage.html).toContain("Out for delivery");
+
+    const noStage = delayEmail({
+      name: "Sara", oldLabel: "2:30 PM", newLabel: "3:00 PM", trackingToken: "t2",
+    });
+    expect(noStage.html).not.toContain("Out for delivery"); // no stepper without a stage
   });
 });
 

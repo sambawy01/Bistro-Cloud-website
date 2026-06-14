@@ -206,6 +206,8 @@ export interface DelayEmailInput {
   oldLabel: string;
   newLabel: string;
   trackingToken: string;
+  /** Order's current pipeline stage, used to render the stepper. Omit to skip it. */
+  currentStage?: StepperStage;
 }
 
 /** "Running late" / new-ETA email (port of sendDelayEmail). oldLabel/newLabel
@@ -213,9 +215,10 @@ export interface DelayEmailInput {
 export function delayEmail(o: DelayEmailInput): BuiltEmail {
   const inner =
     '<h2 style="color: #2C3E50; margin-top: 0;">Your order is running a little late</h2>' +
+    (o.currentStage ? statusStepper(o.currentStage) : "") +
     `<p style="color: #555; line-height: 1.6;">New estimated delivery: <b>${escapeHtml(o.newLabel)}</b> (was ${escapeHtml(o.oldLabel)}). Thanks for your patience!</p>` +
     trackButton(o.trackingToken);
-  return { subject: "Bistro Cloud — updated delivery time", html: wrap(inner) };
+  return { subject: ORDER_SUBJECT, html: wrap(inner) };
 }
 
 export interface DeclineEmailInput {
