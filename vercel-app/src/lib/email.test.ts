@@ -9,6 +9,8 @@ import {
   delayEmail,
   declineEmail,
   sendEmail,
+  orderMessageId,
+  ORDER_SUBJECT,
 } from "./email";
 
 describe("escapeHtml", () => {
@@ -148,6 +150,18 @@ describe("declineEmail", () => {
     const { subject, html } = declineEmail({ name: "Sara", deliverySlot: "14:30" });
     expect(subject).toBe("Bistro Cloud — we couldn't fit your order in today");
     expect(html).toContain("no more delivery times are available today");
+  });
+});
+
+describe("orderMessageId", () => {
+  it("builds a deterministic RFC Message-ID from the token", () => {
+    expect(orderMessageId("tok-9")).toBe("<order-tok-9@bistro-cloud.com>");
+  });
+});
+
+describe("ORDER_SUBJECT", () => {
+  it("is the single constant lifecycle subject", () => {
+    expect(ORDER_SUBJECT).toBe("Bistro Cloud — your order");
   });
 });
 

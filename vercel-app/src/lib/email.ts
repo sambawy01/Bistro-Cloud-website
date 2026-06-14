@@ -20,6 +20,17 @@ import type { PaymentMethod } from "./validation";
 const FROM = "Bistro Cloud <orders@bistro-cloud.com>";
 const REPLY_TO = "bistrocloud3@gmail.com";
 
+/** The single subject shared by every lifecycle email of one order, so clients
+ * that thread by subject also group them. Decline keeps its own subject. */
+export const ORDER_SUBJECT = "Bistro Cloud — your order";
+
+/** Deterministic RFC Message-ID for an order, derived from its tracking token.
+ * The first email of an order sends with this as Message-ID; later emails set
+ * In-Reply-To/References to it so they thread under the original. */
+export function orderMessageId(token: string): string {
+  return `<order-${token}@bistro-cloud.com>`;
+}
+
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cod: "Cash on delivery",
   card_on_delivery: "Card on delivery (POS)",
