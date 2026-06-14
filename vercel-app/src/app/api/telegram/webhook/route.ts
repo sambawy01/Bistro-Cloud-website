@@ -6,6 +6,7 @@ import {
   editMessageText,
   editMessageReplyMarkup,
   sendMessage,
+  sendChatAction,
   getFile,
   downloadFile,
   type InlineKeyboard,
@@ -25,6 +26,8 @@ import {
   appendHistory,
   appendAudit,
   confirmCancelKeyboard,
+  shouldAlertOwner,
+  type IntrusionKind,
 } from "@/lib/assistant/state";
 import { executeTool } from "@/lib/assistant/tools";
 import { transcribeVoice, MAX_VOICE_SECONDS, MAX_VOICE_BYTES } from "@/lib/assistant/voice";
@@ -230,7 +233,7 @@ interface TgDocument {
 interface TgMessage {
   message_id: number;
   chat: { id: number; type?: string };
-  from?: { id: number };
+  from?: { id: number; username?: string };
   text?: string;
   caption?: string;
   voice?: TgVoice;
@@ -419,6 +422,9 @@ function pdfFailureMessage(reason: string): string {
 async function routeOwnerMessage(message: TgMessage, deadlineAt: number): Promise<void> {
   const chatId = message.chat.id;
   const caption = message.caption ?? "";
+  // Show "typing…" immediately so the owner sees the agent is working while the
+  // (possibly multi-second) model/media work runs below. Non-fatal.
+  sendChatAction(chatId, "typing").catch(() => {});
   try {
     if (message.voice) {
       if (message.voice.duration > MAX_VOICE_SECONDS) {
@@ -502,6 +508,32 @@ async function routeOwnerMessage(message: TgMessage, deadlineAt: number): Promis
 }
 
 /**
+ * Best-effort, rate-limited owner alert on an intrusion attempt (non-owner DM /
+ * blocked /start). Delegates the rate-limit decision to `shouldAlertOwner`
+ * (alerts.json state) and, when it says yes, DMs the bound owner a PII-LIGHT
+ * note: the stranger's id/username + the intrusion kind ONLY — never the
+ * message text. Callers must only invoke this when an owner is actually bound.
+ * Never throws.
+ */
+async function alertOwner(
+  ownerChatId: number,
+  kind: IntrusionKind,
+  from: { id?: number; username?: string } | undefined,
+): Promise<void> {
+  try {
+    const strangerId = typeof from?.id === "number" ? from.id : 0;
+    if (!(await shouldAlertOwner(strangerId, kind))) return;
+    const who = from?.username ? `@${from.username}` : `id ${from?.id ?? "unknown"}`;
+    await sendMessage(
+      ownerChatId,
+      `⚠️ Someone tried to use the bot — ${who} (${kind}). I refused them.`,
+    ).catch(() => {});
+  } catch (err) {
+    console.error("[webhook] owner intrusion alert failed (non-fatal):", err);
+  }
+}
+
+/**
  * Handle `/start` — owner binding. Binds the first DM that presents the correct
  * ADMIN_PASS (timing-safe); a friendly note if already bound to this chat;
  * otherwise the generic refusal. Never throws.
@@ -511,12 +543,18 @@ async function handleStart(message: TgMessage, text: string): Promise<void> {
   try {
     const owner = await getOwnerChatId();
     if (owner !== null) {
-      await sendMessage(
-        chatId,
-        chatId === owner
-          ? "✅ You're already connected. Ask me anything about the business."
-          : GENERIC_REFUSAL,
-      );
+      if (chatId === owner) {
+        await sendMessage(chatId, "✅ You're already connected. Ask me anything about the business.");
+      } else {
+        // A stranger tried /start after an owner is already bound. Refuse, then
+        // alert the bound owner (rate-limited). Distinguish a correct-password
+        // rebind attempt (more serious) from a wrong/missing one. Deferred + non-fatal.
+        await sendMessage(chatId, GENERIC_REFUSAL);
+        const attempted = text.replace(/^\/start(@\S+)?\s*/i, "").trim();
+        const kind: IntrusionKind =
+          attempted && passwordOk(attempted) ? "start-rebind-blocked" : "start-wrong-pass";
+        after(() => alertOwner(owner, kind, message.from));
+      }
       return;
     }
     // Owner not yet bound — accept the first chat with the correct password.
@@ -571,6 +609,12 @@ async function handleMessageUpdate(message: TgMessage | undefined): Promise<Resp
   }
   if (owner === null || chatId !== owner) {
     await sendMessage(chatId, GENERIC_REFUSAL).catch(() => {});
+    // Proactively notify the bound owner of the intrusion (rate-limited). Only
+    // when an owner exists — never when unbound (no one to alert, and a stray
+    // /start-less DM pre-binding is not an intrusion). Deferred + non-fatal.
+    if (owner !== null) {
+      after(() => alertOwner(owner, "unauthorized-message", message.from));
+    }
     return new Response("ok", { status: 200 });
   }
 

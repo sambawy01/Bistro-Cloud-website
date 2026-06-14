@@ -37,6 +37,7 @@ vi.mock("@/lib/telegram", () => ({
   editMessageText: vi.fn(async () => ({ ok: true, status: 200 })),
   editMessageReplyMarkup: vi.fn(async () => ({ ok: true, status: 200 })),
   sendMessage: vi.fn(async () => ({ ok: true, status: 200 })),
+  sendChatAction: vi.fn(async () => ({ ok: true, status: 200 })),
   getFile: vi.fn(async () => ({ ok: true, filePath: "voice/file_1.oga", fileSize: 10 })),
   downloadFile: vi.fn(async () => new Uint8Array([1, 2, 3])),
 }));
@@ -54,6 +55,7 @@ vi.mock("@/lib/assistant/agent", () => ({
 vi.mock("@/lib/assistant/state", () => ({
   getOwnerChatId: vi.fn(async () => 777),
   bindOwner: vi.fn(async () => {}),
+  shouldAlertOwner: vi.fn(async () => true),
   takePendingAction: vi.fn(async () => ({
     ok: true,
     action: { tool: "order_delay", args: { token: "t", minutes: 15 }, summary: "Delay order t by 15 min" },
@@ -629,6 +631,54 @@ describe("owner-DM agent routing", () => {
     const lastCall = (sendMessage as any).mock.calls.at(-1);
     expect(lastCall[2]).toBeDefined(); // keyboard arg
     expect(lastCall[2].inline_keyboard.flat().some((b: any) => b.callback_data === `confirm:${PENDING_ID}`)).toBe(true);
+  });
+});
+
+// ── Intrusion alert on non-owner contact (Task 3) ──
+describe("intrusion alert on non-owner contact", () => {
+  it("alerts the bound owner when a stranger DMs, but still refuses the stranger", async () => {
+    const { shouldAlertOwner } = await import("@/lib/assistant/state");
+    const { runAgent } = await import("@/lib/assistant/agent");
+    (shouldAlertOwner as any).mockResolvedValueOnce(true);
+    (runAgent as any).mockClear();
+    const res = await POST(req(strangerDm("hello bot please help")));
+    expect(res.status).toBe(200);
+    await flushAfter();
+    // The agent never runs for a stranger.
+    expect(runAgent).not.toHaveBeenCalled();
+    // The stranger (999) still gets the generic refusal.
+    const refusal = (sendMessage as any).mock.calls.find((c: any[]) => c[0] === 999);
+    expect(refusal).toBeDefined();
+    expect(refusal[1]).toMatch(/private assistant/i);
+    // The bound owner (777) gets a PII-light intrusion alert — never the message text.
+    expect(shouldAlertOwner).toHaveBeenCalled();
+    const alert = (sendMessage as any).mock.calls.find((c: any[]) => c[0] === 777);
+    expect(alert).toBeDefined();
+    expect(alert[1]).toMatch(/tried to use the bot/i);
+    expect(alert[1]).not.toContain("hello bot please help");
+  });
+
+  it("does NOT alert again when shouldAlertOwner says no (rate-limited)", async () => {
+    const { shouldAlertOwner } = await import("@/lib/assistant/state");
+    (shouldAlertOwner as any).mockResolvedValueOnce(false);
+    const res = await POST(req(strangerDm("second time")));
+    expect(res.status).toBe(200);
+    await flushAfter();
+    // No alert reaches the owner.
+    const alert = (sendMessage as any).mock.calls.find((c: any[]) => c[0] === 777);
+    expect(alert).toBeUndefined();
+    // The stranger is still refused.
+    const refusal = (sendMessage as any).mock.calls.find((c: any[]) => c[0] === 999);
+    expect(refusal).toBeDefined();
+  });
+
+  it("never alerts when no owner is bound (unbound = no one to alert)", async () => {
+    const { getOwnerChatId, shouldAlertOwner } = await import("@/lib/assistant/state");
+    (getOwnerChatId as any).mockResolvedValueOnce(null);
+    const res = await POST(req(strangerDm("anyone home?")));
+    expect(res.status).toBe(200);
+    await flushAfter();
+    expect(shouldAlertOwner).not.toHaveBeenCalled();
   });
 });
 

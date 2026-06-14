@@ -63,6 +63,14 @@ export function answerCallbackQuery(callbackQueryId: string, text?: string): Pro
   return call("answerCallbackQuery", { callback_query_id: callbackQueryId, ...(text ? { text } : {}) });
 }
 
+/** Show a chat action (e.g. "typing") — auto-clears after ~5s or on the next message. */
+export function sendChatAction(
+  chatId: string | number,
+  action: "typing" | "upload_voice" | "upload_document" = "typing",
+): Promise<TelegramResult> {
+  return call("sendChatAction", { chat_id: chatId, action });
+}
+
 export interface GetFileResult {
   ok: boolean;
   filePath?: string;

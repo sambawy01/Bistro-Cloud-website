@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getFile, downloadFile, sendDocument } from "./telegram";
+import { getFile, downloadFile, sendDocument, sendChatAction } from "./telegram";
 
 const ORIG = { ...process.env };
 beforeEach(() => {
@@ -68,6 +68,17 @@ describe("downloadFile", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream, { status: 200 }));
     const out = await downloadFile("x", 10);
     expect(out).toBeNull();
+  });
+});
+
+describe("sendChatAction", () => {
+  it("sendChatAction posts the action to the chat", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, result: true }), { status: 200 }),
+    );
+    const r = await sendChatAction(777, "typing");
+    expect(r.ok).toBe(true);
+    expect(spy.mock.calls[0][0] as string).toContain("/sendChatAction");
   });
 });
 
