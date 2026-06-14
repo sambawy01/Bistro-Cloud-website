@@ -12,6 +12,7 @@ import {
   orderMessageId,
   ORDER_SUBJECT,
   statusStepper,
+  isStepperStage,
 } from "./email";
 
 describe("escapeHtml", () => {
@@ -209,6 +210,16 @@ describe("statusStepper", () => {
     const html = statusStepper("delivered");
     expect((html.match(/✓/g) || []).length).toBe(3);
     expect((html.match(/○/g) || []).length).toBe(0);
+  });
+});
+
+describe("isStepperStage", () => {
+  it("accepts the 4 stepper stages and rejects others", () => {
+    expect(isStepperStage("confirmed")).toBe(true);
+    expect(isStepperStage("out_for_delivery")).toBe(true);
+    expect(isStepperStage("delivered")).toBe(true);
+    expect(isStepperStage("pending_approval")).toBe(false);
+    expect(isStepperStage("declined")).toBe(false);
   });
 });
 

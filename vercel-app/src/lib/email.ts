@@ -93,6 +93,11 @@ const STEPPER_STEPS: { key: StepperStage; label: string }[] = [
   { key: "delivered", label: "Delivered" },
 ];
 
+/** True when an arbitrary status string is one of the 4 stepper stages. */
+export function isStepperStage(s: string): s is StepperStage {
+  return STEPPER_STEPS.some((step) => step.key === s);
+}
+
 /** A 4-step status bar mirroring the /track page. Completed steps show ✓ (orange),
  * the current step ● (orange, bold), future steps ○ (gray). Table-based for Outlook. */
 export function statusStepper(current: StepperStage): string {

@@ -226,7 +226,7 @@ describe("runOrderSideEffects (deferred work)", () => {
       "sara@example.com",
       "Bistro Cloud — order confirmed",
       "<p>confirm</p>",
-      expect.objectContaining({ threadRole: "root" }),
+      expect.objectContaining({ threadToken: "tok-1", threadRole: "root" }),
     );
   });
 

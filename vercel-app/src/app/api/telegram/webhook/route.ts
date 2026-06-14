@@ -4,7 +4,7 @@ import { setOrderStatusByToken, getOrderStatus, delayOrder, type OrderStatus } f
 import { answerCallbackQuery, editMessageText, editMessageReplyMarkup, sendMessage, type InlineKeyboard } from "@/lib/telegram";
 import { actionToStatus, keyboardForStatus, delayKeyboard, delayActionMinutes } from "@/lib/orderMessage";
 import { loyverseConfigured, pushReceipt, parseOrderSummary, type LoyverseOrder } from "@/lib/loyverse";
-import { confirmationEmail, statusEmail, declineEmail, delayEmail, sendEmail, type StatusEmailStatus, type StepperStage } from "@/lib/email";
+import { confirmationEmail, statusEmail, declineEmail, delayEmail, sendEmail, isStepperStage, type StatusEmailStatus } from "@/lib/email";
 import type { PaymentMethod } from "@/lib/validation";
 
 const PAYMENT_METHODS: LoyverseOrder["paymentMethod"][] = ["cod", "card_on_delivery", "instapay"];
@@ -136,10 +136,7 @@ async function sendDelayEmailByToken(token: string, oldLabel: string, newLabel: 
       console.error("[webhook] delay email: no order/email for", token, detail.error);
       return;
     }
-    const stepperStages: StepperStage[] = ["confirmed", "preparing", "out_for_delivery", "delivered"];
-    const currentStage = stepperStages.includes(o.status as StepperStage)
-      ? (o.status as StepperStage)
-      : undefined;
+    const currentStage = isStepperStage(o.status) ? o.status : undefined;
     const { subject, html } = delayEmail({ name: o.name, oldLabel, newLabel, trackingToken: token, currentStage });
     const sent = await sendEmail(o.email, subject, html, { threadToken: token, threadRole: "reply" });
     if (!sent.ok) console.error("[webhook] delay email failed (non-fatal):", sent.error);

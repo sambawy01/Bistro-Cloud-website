@@ -31,6 +31,7 @@ vi.mock("@/lib/email", () => ({
   declineEmail: vi.fn(() => ({ subject: "decline-subject", html: "<p>decline</p>" })),
   delayEmail: vi.fn(() => ({ subject: "delay-subject", html: "<p>delay</p>" })),
   sendEmail: vi.fn(async () => ({ ok: true })),
+  isStepperStage: (s: string) => ["confirmed", "preparing", "out_for_delivery", "delivered"].includes(s),
 }));
 vi.mock("@/lib/telegram", () => ({
   answerCallbackQuery: vi.fn(async () => ({ ok: true, status: 200 })),
@@ -271,7 +272,7 @@ describe("POST /api/telegram/webhook — customer emails", () => {
     );
     expect(sendEmail).toHaveBeenCalledWith(
       "sara@example.com", "status-subject", "<p>status</p>",
-      expect.objectContaining({ threadRole: "reply" }),
+      expect.objectContaining({ threadToken: "tok-p", threadRole: "reply" }),
     );
   });
 
@@ -313,11 +314,17 @@ describe("POST /api/telegram/webhook — customer emails", () => {
     expect(sendEmail).not.toHaveBeenCalled(); // deferred
     await flushAfter();
     expect(delayEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ trackingToken: expect.any(String), currentStage: "confirmed" }),
+      expect.objectContaining({
+        name: "Sara Ali",
+        oldLabel: "2:30 PM",
+        newLabel: "3:00 PM",
+        trackingToken: "tok-d",
+        currentStage: "confirmed",
+      }),
     );
     expect(sendEmail).toHaveBeenCalledWith(
       "sara@example.com", "delay-subject", "<p>delay</p>",
-      expect.objectContaining({ threadRole: "reply" }),
+      expect.objectContaining({ threadToken: "tok-d", threadRole: "reply" }),
     );
   });
 
@@ -366,7 +373,7 @@ describe("POST /api/telegram/webhook — customer emails", () => {
     );
     expect(sendEmail).toHaveBeenCalledWith(
       "sara@example.com", "confirm-subject", "<p>confirm</p>",
-      expect.objectContaining({ threadRole: "root" }),
+      expect.objectContaining({ threadToken: "tok-conf", threadRole: "root" }),
     );
   });
 
