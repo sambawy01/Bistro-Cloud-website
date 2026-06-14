@@ -34,7 +34,7 @@ describe("wrap", () => {
     expect(html).toContain("#F9F5F0"); // cream header/background
     expect(html).toContain("Fresh. Natural. Delivered Daily."); // tagline
     expect(html).toContain('href="https://bistro-cloud.com"'); // footer link
-    expect(html).not.toContain("#2C3E50"); // navy header is gone from the shell
+    expect(html).not.toContain("#2C3E50"); // navy is gone from the shell; heading styles inside content still use #2C3E50
   });
 });
 

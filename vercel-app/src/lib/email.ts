@@ -165,19 +165,16 @@ export function confirmationEmail(o: ConfirmationEmailInput): BuiltEmail {
 
 export type StatusEmailStatus = "preparing" | "out_for_delivery" | "delivered";
 
-const STATUS_EMAIL_COPY: Record<StatusEmailStatus, { subject: string; heading: string; body: string }> = {
+const STATUS_EMAIL_COPY: Record<StatusEmailStatus, { heading: string; body: string }> = {
   preparing: {
-    subject: "Your Bistro Cloud order is being prepared",
     heading: "The kitchen is on it!",
     body: "Your order is being freshly prepared right now.",
   },
   out_for_delivery: {
-    subject: "Your Bistro Cloud order is out for delivery",
     heading: "On the way!",
     body: "Your order has left the kitchen and is on its way to you.",
   },
   delivered: {
-    subject: "Your Bistro Cloud order has been delivered",
     heading: "Enjoy your meal!",
     body: "Your order has been delivered. Thank you for ordering with Bistro Cloud!",
   },
