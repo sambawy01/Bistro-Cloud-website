@@ -137,6 +137,7 @@ export function confirmationEmail(o: ConfirmationEmailInput): BuiltEmail {
   const label = slotLabel(o.deliverySlot);
   let inner =
     `<h2 style="color: #2C3E50; margin-top: 0;">Order confirmed, ${escapeHtml(o.name)}!</h2>` +
+    statusStepper("confirmed") +
     `<p style="color: #555; line-height: 1.6;">Your delivery is scheduled for <strong>today at ${escapeHtml(label)}</strong>.</p>` +
     '<div style="background: #F9F5F0; border-radius: 12px; padding: 20px; margin: 20px 0;">' +
     `<p style="color: #333; margin: 0; white-space: pre-line;">${escapeHtml(o.orderSummary)}</p>` +
@@ -157,7 +158,7 @@ export function confirmationEmail(o: ConfirmationEmailInput): BuiltEmail {
   inner += trackButton(o.trackingToken);
 
   return {
-    subject: `Bistro Cloud — order confirmed for ${label}`,
+    subject: ORDER_SUBJECT,
     html: wrap(inner),
   };
 }

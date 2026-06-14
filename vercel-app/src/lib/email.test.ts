@@ -61,7 +61,8 @@ describe("confirmationEmail", () => {
     expect(html).toContain("2:30 PM"); // 14:30 → 2:30 PM
     expect(html).toContain("https://bistro-cloud.com/track?token=tok-9");
     expect(html).toContain("Track your order");
-    expect(subject).toBe("Bistro Cloud — order confirmed for 2:30 PM");
+    expect(subject).toBe("Bistro Cloud — your order");
+    expect(html).toContain("Being prepared"); // status stepper present
   });
 
   it("shows a payment line for the method", () => {
