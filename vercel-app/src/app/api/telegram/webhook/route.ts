@@ -338,6 +338,11 @@ async function handleConfirmCallback(cb: TgCallback): Promise<void> {
     const owner = await getOwnerChatId();
     if (owner === null || chatId !== owner) {
       await answerCallbackQuery(cb.id).catch(() => {});
+      if (owner !== null) {
+        after(() =>
+          appendAudit({ chatId, kind: "unauthorized-callback", detail: { chatId } }),
+        );
+      }
       return;
     }
 
@@ -508,6 +513,18 @@ async function routeOwnerMessage(message: TgMessage, deadlineAt: number): Promis
 }
 
 /**
+ * PII-light sender descriptor for audit entries: the Telegram USER id and
+ * (optional) username only — never message text. The user id is what an
+ * operator compares against telegram/owner.json's stored chatId to diagnose a
+ * binding pointed at the wrong chat (the cause of an owner seeing the refusal).
+ */
+function senderDetail(
+  from: { id?: number; username?: string } | undefined,
+): Record<string, unknown> {
+  return { userId: from?.id ?? null, username: from?.username ?? null };
+}
+
+/**
  * Best-effort, rate-limited owner alert on an intrusion attempt (non-owner DM /
  * blocked /start). Delegates the rate-limit decision to `shouldAlertOwner`
  * (alerts.json state) and, when it says yes, DMs the bound owner a PII-LIGHT
@@ -554,6 +571,9 @@ async function handleStart(message: TgMessage, text: string): Promise<void> {
         const kind: IntrusionKind =
           attempted && passwordOk(attempted) ? "start-rebind-blocked" : "start-wrong-pass";
         after(() => alertOwner(owner, kind, message.from));
+        // Record the blocked /start so an operator can read the offending chat id
+        // from telegram/audit.jsonl when diagnosing a wrong-chat binding.
+        after(() => appendAudit({ chatId, kind, detail: senderDetail(message.from) }));
       }
       return;
     }
@@ -614,6 +634,17 @@ async function handleMessageUpdate(message: TgMessage | undefined): Promise<Resp
     // /start-less DM pre-binding is not an intrusion). Deferred + non-fatal.
     if (owner !== null) {
       after(() => alertOwner(owner, "unauthorized-message", message.from));
+      // Audit the refused message (PII-light: sender id only, never the text).
+      // This is the trail an operator follows when the BOUND owner unexpectedly
+      // sees the refusal — the logged userId vs owner.json.chatId reveals that
+      // the binding points at a different chat than the one being texted from.
+      after(() =>
+        appendAudit({
+          chatId,
+          kind: "unauthorized-message",
+          detail: senderDetail(message.from),
+        }),
+      );
     }
     return new Response("ok", { status: 200 });
   }
